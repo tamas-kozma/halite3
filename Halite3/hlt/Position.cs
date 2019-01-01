@@ -1,6 +1,7 @@
 ﻿namespace Halite3.hlt
 {
     using System;
+    using System.Collections.Generic;
 
     public struct Position : IEquatable<Position>
     {
@@ -21,6 +22,17 @@
         public int Column
         {
             get { return column; }
+        }
+
+        public static IEnumerable<Position> GetRectangleCells(int row1, int column1, int row2, int column2)
+        {
+            for (int row = row1; row <= row2; row++)
+            {
+                for (int column = column1; column <= column2; column++)
+                {
+                    yield return new Position(row, column);
+                }
+            }
         }
 
         public static bool operator ==(Position left, Position right)

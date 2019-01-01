@@ -1,4 +1,5 @@
 *.log
+*.svg
 *.hlt
 *.exe
 bin/

@@ -19,6 +19,14 @@
             get { return Width * Height; }
         }
 
+        public IEnumerable<Position> AllPositions
+        {
+            get
+            {
+                return Position.GetRectangleCells(0, 0, Height - 1, Width - 1);
+            }
+        }
+
         public abstract T GetAt(Position position);
         public abstract void SetAt(Position position, T value);
 

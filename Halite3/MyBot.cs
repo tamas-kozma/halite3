@@ -36,43 +36,7 @@
                     return;
                 }
 
-                var painter = new MapLayerPainter();
-                string svg = painter.MapLayerToSvg(gameInitializationMessage.MapWithHaliteAmounts);
-                File.WriteAllText("haliteMap.svg", svg);
-
-                ////
-                var start = DateTime.Now;
-                unchecked
-                {
-                    var map = gameInitializationMessage.MapWithHaliteAmounts;
-                    int totalIterations = 0;
-                    for (int i = 0; i < 0; i++)
-                    {
-                        for (int row = 0; row < map.Height; row++)
-                        {
-                            for (int column = 0; column < map.Width; column++)
-                            {
-                                totalIterations++;
-                                var position = new Position(row, column);
-                                int halite = map[position];
-                                int distance = Math.Abs((row - column) % map.Width) + Math.Abs((column - row) % map.Height);
-                                halite = (int)(Math.Pow(distance, 2) * halite / 2);
-                                map[position] = halite;
-                            }
-                        }
-                    }
-
-                    foreach (var haliteAtCell in map)
-                    {
-                        //logger.WriteMessage(haliteAtCell.ToString());
-                    }
-
-                    logger.WriteMessage(totalIterations.ToString());
-                }
-
-                var elapsed = DateTime.Now - start;
-                logger.WriteMessage(elapsed.ToString());
-                ////
+                var planningMap = new HarvestPlanningMap(gameInitializationMessage.MapWithHaliteAmounts);
 
                 var commands = new CommandList();
                 haliteEngineInterface.EndTurn(commands);
