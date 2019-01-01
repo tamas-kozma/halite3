@@ -1,0 +1,59 @@
+﻿* Map divided into two sets of finer and coarser grids
+** The sets are aligned so that the corners of one are the centers of the other
+*** I can then use the set where the boat in question is closer to the middle, to get better accuracy
+** For each boat, use the grids so that the finer ones are used near the ship, and the coarser further away
+** For outbound harvesters, far away resources are visible, but only with very little weight
+*** This way they will use them if, and only if, there's nothing closer
+* Roles
+** Special agent
+** Outbound
+** Harverster
+** Inbound
+* Defence
+** Ignore enemies close by, but account for new bases
+** When blocked for at least two turns, then I can employ one of a number of tactics, depending on class, distance, opponent positions
+*** With a chance, inverted goal assignment, for a number of turns
+*** Crash with enemy
+* Entrance and exit routes
+* Calculate ship-turns (mandays) for all players, sum up resources
+** Without building anything, with only a ship, with a ship then a base, with a base then a ship
+** Then choose the best
+* Ship command ordering and resource adjustments
+** Special agents first
+** Harversters
+*** Harversters should reduce resources around them
+** Outbound
+*** Outbound should reduce at the target area, and should evaluate so that the ones closer to their goals come first
+** Inbound
+* Random
+** For inbound traffic, some cells should be off limits around exit routes
+** When deciding that a base should be built, that should be taken into account immediately for inbound ships
+** Bases with more resources around them could be preferred drop off points
+*** But then inbound ships might have to sail through lots of halite and loose their cargo
+*** Maybe I should clear paths to new bases, or send empty ships there first?
+** Ship-turn-resource calculations can also give me an idea about how well I'm doing compared to opponents
+*** If all is well, then no need to use any tricks
+*** Otherwise I might want to start experimenting against the strongest enemies
+*** It is also possible that I decide to build a base even if that is not good for me, as long as that costs more to an enemy ahead of me
+*** I can also use this when deciding where to build a base maybe
+** Avoid collisions by not entering cells where enemies might also go
+*** I can check if the enemy that could go there is currently on a cell that has not much lower resource count and then ignore it
+** Outbound ships should prefer resources closer to enemies (enemy bases), as that way I can steal resources from them
+*** Maybe only enemies that are doing well compared to me, as harvesting with them could be bad for me
+*** But it can also be good because of the inspiration they provide, so this needs to be tested
+** Harvesters should slightly prefer cells closer to the base
+** I need to get between the enemy ship and base, and then I can either torpedo or block the enemy well
+* New random
+** Resources need penalty both for distance from ship and for distance from bases
+*** That will likely get outbound ships to go to new bases, as resources around them will have low distance from base penalties
+** Inbound ships need to find efficient paths
+*** Start from bases, set distance and cost at neighbouring cells, taking the minimum of the new value and any old value
+*** Ignore neighbours where the distance is much greater than the direct distance would be (10%?)
+*** Think some more about this, as I have a doubt that this algorithm is not correct, at least not without some ordering
+** Resources along paths where inbound ships go should get bonuses
+*** That should help build roads
+*** The paths need to be detected by scent left by inbound ships traveling them
+
+
+
+
