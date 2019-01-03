@@ -3,17 +3,17 @@
     using System;
     using System.Collections.Generic;
 
-    public class MapDataLayer<T> : MapLayer<T>
+    public class DataMapLayer<T> : MapLayer<T>
     {
         private readonly T[] array;
 
-        public MapDataLayer(int width, int height)
+        public DataMapLayer(int width, int height)
             : base(width, height)
         {
             array = new T[CellCount];
         }
 
-        public MapDataLayer(MapDataLayer<T> original)
+        public DataMapLayer(DataMapLayer<T> original)
             : this(original.Width, original.Height)
         {
             original.array.CopyTo(array, 0);
@@ -46,6 +46,11 @@
         public override void Clear()
         {
             Array.Clear(array, 0, array.Length);
+        }
+
+        public override void Fill(T value)
+        {
+            Array.Fill(array, value);
         }
 
         public override IEnumerator<T> GetEnumerator()

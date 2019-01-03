@@ -3,24 +3,56 @@
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Text;
 
     public class HarvestPlanningMap
     {
-        private readonly MapDataLayer<int>[] sumLayers;
+        private DataMapLayer<int>[] sumLayers;
+        private DataMapLayer<double> adjustedHaliteMap;
 
-        public HarvestPlanningMap(MapDataLayer<int> haliteMap)
+        public DataMapLayer<int> BaseHaliteMap { get; set; }
+        public string MyPlayerId { get; set; }
+        public TurnMessage TurnMessage { get; set; }
+
+        public void Calculate()
         {
-            int longestMapDimension = Math.Max(haliteMap.Width, haliteMap.Height);
+            adjustedHaliteMap = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
+            foreach (var position in BaseHaliteMap.AllPositions)
+            {
+                adjustedHaliteMap[position] = BaseHaliteMap[position];
+            }
+
+            var myPlayerUpdateMessage = TurnMessage.PlayerUpdates.First(message => message.PlayerId == MyPlayerId);
+            foreach (var dropoffMessage in myPlayerUpdateMessage.Dropoffs)
+            {
+                foreach (var position in adjustedHaliteMap.AllPositions)
+                {
+                }
+            }
+
+
+            CalculateSumLayers();
+        }
+
+        private void CalculateSumLayers()
+        {
+            var baseLayer = new DataMapLayer<int>(BaseHaliteMap.Width, BaseHaliteMap.Height);
+            foreach (var position in baseLayer.AllPositions)
+            {
+                baseLayer[position] = (int)Math.Round(adjustedHaliteMap[position]);
+            }
+
+            int longestMapDimension = Math.Max(BaseHaliteMap.Width, BaseHaliteMap.Height);
             int layerCount = (int)Math.Ceiling(Math.Log(longestMapDimension, 2));
-            sumLayers = new MapDataLayer<int>[layerCount];
-            sumLayers[0] = new MapDataLayer<int>(haliteMap);
+            sumLayers = new DataMapLayer<int>[layerCount];
+            sumLayers[0] = baseLayer;
             for (int level = 1; level < layerCount; level++)
             {
                 var previousLayer = sumLayers[level - 1];
                 int layerWidth = (int)Math.Ceiling(previousLayer.Width / 2d);
                 int layerHeight = (int)Math.Ceiling(previousLayer.Height / 2d);
-                var layer = new MapDataLayer<int>(layerWidth, layerHeight);
+                var layer = new DataMapLayer<int>(layerWidth, layerHeight);
                 sumLayers[level] = layer;
                 foreach (var position in layer.AllPositions)
                 {
@@ -38,14 +70,6 @@
 
                     layer.SetAt(position, sum);
                 }
-            }
-
-            for (int i = 0; i < sumLayers.Length; i++)
-            {
-                var painter = new MapLayerPainter();
-                painter.CellPixelSize = 8;
-                string svg = painter.MapLayerToSvg(sumLayers[i]);
-                File.WriteAllText("haliteMap-" + i + ".svg", svg);
             }
         }
     }

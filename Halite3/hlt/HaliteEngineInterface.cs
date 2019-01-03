@@ -23,7 +23,7 @@
 
             var tokens = ReadTokenString();
             int playerCount = tokens.ReadInteger();
-            message.CurrentPlayerId = tokens.ReadId();
+            message.MyPlayerId = tokens.ReadId();
 
             message.Players = new PlayerInitializationMessage[playerCount];
             for (int i = 0; i < playerCount; i++)
@@ -38,7 +38,7 @@
             tokens = ReadTokenString();
             int mapWidth = tokens.ReadInteger();
             int mapHeight = tokens.ReadInteger();
-            var haliteMap = new MapDataLayer<int>(mapWidth, mapHeight);
+            var haliteMap = new DataMapLayer<int>(mapWidth, mapHeight);
             message.MapWithHaliteAmounts = haliteMap;
             for (int row = 0; row < mapHeight; row++)
             {

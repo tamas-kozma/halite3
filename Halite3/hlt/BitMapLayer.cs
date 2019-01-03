@@ -3,11 +3,11 @@
     using System.Collections;
     using System.Collections.Generic;
 
-    public class MapBitLayer : MapLayer<bool>
+    public class BitMapLayer : MapLayer<bool>
     {
         private readonly BitArray bits;
 
-        public MapBitLayer(int width, int height)
+        public BitMapLayer(int width, int height)
             : base(width, height)
         {
             bits = new BitArray(CellCount);
@@ -30,6 +30,11 @@
         public override void Clear()
         {
             bits.SetAll(false);
+        }
+
+        public override void Fill(bool value)
+        {
+            bits.SetAll(value);
         }
 
         public override bool GetAt(Position position)
