@@ -1,0 +1,17 @@
+TODO: Add stats for path costs as well.
+
+ReturnPathDistancePenaltyMultiplier = 1
+distanceSum = 138540; averageDistance = 33; maxDistance = 76
+distanceSum = 139402; averageDistance = 34; maxDistance = 69
+distanceSum = 133272; averageDistance = 32; maxDistance = 67
+distanceSum = 138972; averageDistance = 33; maxDistance = 69
+
+ReturnPathDistancePenaltyMultiplier = 0.1
+distanceSum = 150618; averageDistance = 36; maxDistance = 78
+distanceSum = 149434; averageDistance = 36; maxDistance = 73
+
+ReturnPathDistancePenaltyMultiplier = 0
+distanceSum = 167962; averageDistance = 41; maxDistance = 88
+distanceSum = 181972; averageDistance = 44; maxDistance = 111
+distanceSum = 169090; averageDistance = 41; maxDistance = 106
+

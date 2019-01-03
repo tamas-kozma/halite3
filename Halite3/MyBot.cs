@@ -91,6 +91,21 @@
 
                     svg = painter.MapLayerToSvg(distances);
                     File.WriteAllText("returnMapDistances.svg", svg);
+
+                    int distanceSum = 0;
+                    int maxDistance = int.MinValue;
+                    foreach (var position in distances.AllPositions)
+                    {
+                        int distance = distances[position];
+                        distanceSum += distance;
+                        if (distance > maxDistance)
+                        {
+                            maxDistance = distance;
+                        }
+                    }
+
+                    int averageDistance = distanceSum / (distances.Width * distances.Height);
+                    logger.WriteMessage("distanceSum = " + distanceSum + "; averageDistance = " + averageDistance + "; maxDistance = " + maxDistance);
                 }
 
                 var commands = new CommandList();

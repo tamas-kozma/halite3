@@ -30,7 +30,6 @@
             PathCosts.Fill(double.MaxValue);
             CellData = new DataMapLayer<ReturnMapCellData>(HaliteMap.Width, HaliteMap.Height);
 
-            Logger.WriteMessage("dropoffPositions.Length = " + dropoffPositions.Length);
             var queue = new PriorityQueue<double, Position>();
             foreach (var position in dropoffPositions)
             {
@@ -39,23 +38,19 @@
                 queue.Enqueue(0d, position);
             }
 
-            int iterationCount = 0;
-            var startTime = DateTime.Now;
-
             var neighbours = new Position[4];
             while (queue.Count > 0)
             {
-                iterationCount++;
                 var position = queue.Dequeue();
                 var cellData = CellData[position];
                 HaliteMap.GetNeighbours(position, neighbours);
                 foreach (var neighbour in neighbours)
                 {
-                    double neighbourCost = PathCosts[neighbour];
+                    double oldNeighbourCost = PathCosts[neighbour];
                     int neighbourHalite = HaliteMap[neighbour];
                     var newNeighbourCellData = new ReturnMapCellData(cellData.Distance + 1, cellData.SumHalite + neighbourHalite);
                     double newNeighbourCost = GetPathCost(neighbour, newNeighbourCellData);
-                    if (neighbourCost <= newNeighbourCost)
+                    if (oldNeighbourCost <= newNeighbourCost)
                     {
                         continue;
                     }
@@ -65,9 +60,6 @@
                     queue.Enqueue(newNeighbourCost, neighbour);
                 }
             }
-
-            var elapsed = DateTime.Now - startTime;
-            Logger.WriteMessage("elapsed = " + elapsed + "; iterationCount = " + iterationCount);
         }
 
         private double GetPathCost(Position pathStartPosition, ReturnMapCellData data)
