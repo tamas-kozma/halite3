@@ -14,23 +14,42 @@
         public DataMapLayer<int> BaseHaliteMap { get; set; }
         public string MyPlayerId { get; set; }
         public TurnMessage TurnMessage { get; set; }
+        public ReturnMap ReturnMap { get; set; }
+        public TuningSettings TuningSettings { get; set; }
+        public Logger Logger { get; set; }
 
         public void Calculate()
         {
             adjustedHaliteMap = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
             foreach (var position in BaseHaliteMap.AllPositions)
             {
-                adjustedHaliteMap[position] = BaseHaliteMap[position];
+                int halite = BaseHaliteMap[position];
+                double returnPathCost = ReturnMap.PathCosts[position];
+                double lostHalite = GameConstants.MoveCostRatio * returnPathCost * TuningSettings.HarvestPlanningLostHaliteMultiplier;
+                adjustedHaliteMap[position] = Math.Max(halite - lostHalite, 0);
             }
 
-            var myPlayerUpdateMessage = TurnMessage.PlayerUpdates.First(message => message.PlayerId == MyPlayerId);
-            foreach (var dropoffMessage in myPlayerUpdateMessage.Dropoffs)
+            var opponentHarvesterPositions = TurnMessage.PlayerUpdates
+                .Where(message => message.PlayerId != MyPlayerId)
+                .SelectMany(message => message.Ships)
+                .Where(shipMessage => 
+                    shipMessage.Halite > TuningSettings.HarvestPlanningMinOpponentHarvesterHalite 
+                    && shipMessage.Halite < TuningSettings.HarvestPlanningMaxOpponentHarvesterHalite)
+                .Select(shipMessage => shipMessage.Position);
+
+            int opponentHarvesterBonusRadius = TuningSettings.HarvestPlanningOpponentHarvesterBonusRadius;
+            int radiusArea = BaseHaliteMap.GetRadiusArea(opponentHarvesterBonusRadius);
+            var radiusArray = new Position[radiusArea];
+            foreach (var position in opponentHarvesterPositions)
             {
-                foreach (var position in adjustedHaliteMap.AllPositions)
+                adjustedHaliteMap.GetCircleCells(position, opponentHarvesterBonusRadius, radiusArray);
+                foreach (var radiusPosition in radiusArray)
                 {
+                    double adjustedHalite = adjustedHaliteMap[radiusPosition];
+                    adjustedHalite *= TuningSettings.HarvestPlanningOpponentHarvesterBonusMultiplier;
+                    adjustedHaliteMap[radiusPosition] = adjustedHalite;
                 }
             }
-
 
             CalculateSumLayers();
         }

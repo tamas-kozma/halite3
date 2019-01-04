@@ -53,13 +53,30 @@
             return rowDistance + columnDistance;
         }
 
-
         public void GetNeighbours(Position position, Position[] neighbourArray)
         {
-            neighbourArray[0] = new Position(position.Row, (position.Column - 1 + Width) % Width);
-            neighbourArray[1] = new Position((position.Row - 1 + Height) % Height, position.Column);
-            neighbourArray[2] = new Position(position.Row, (position.Column + 1) % Width);
-            neighbourArray[3] = new Position((position.Row + 1) % Height, position.Column);
+            neighbourArray[0] = new Position(position.Row, NormalizeSingleNegativeColumn(position.Column - 1));
+            neighbourArray[1] = new Position(NormalizeSingleNegativeRow(position.Row - 1), position.Column);
+            neighbourArray[2] = new Position(position.Row, NormalizeNonNegativeColumn(position.Column + 1));
+            neighbourArray[3] = new Position(NormalizeNonNegativeRow(position.Row + 1), position.Column);
+        }
+
+        public int GetRadiusArea(int radius)
+        {
+            return (2 * radius) * (radius + 1) + 1;
+        }
+
+        public void GetCircleCells(Position position, int radius, Position[] positionArray)
+        {
+            int index = 0;
+            for (int rowDelta = 0; rowDelta <= radius; rowDelta++)
+            {
+                int columnDelta = radius - rowDelta;
+                positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
+                positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
+                positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
+                positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
+            }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -70,6 +87,26 @@
         protected int PositionToArrayIndex(Position position)
         {
             return position.Row * Width + position.Column;
+        }
+
+        private int NormalizeNonNegativeColumn(int column)
+        {
+            return column % Width;
+        }
+
+        private int NormalizeNonNegativeRow(int row)
+        {
+            return row % Height;
+        }
+
+        private int NormalizeSingleNegativeColumn(int column)
+        {
+            return (column + Width) % Width;
+        }
+
+        private int NormalizeSingleNegativeRow(int row)
+        {
+            return (row + Height) % Height;
         }
     }
 }

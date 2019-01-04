@@ -44,15 +44,6 @@
 
                 if (gameInitializationMessage.MyPlayerId == "0" && turnMessage.TurnNumber == 1)
                 {
-                    var planningMap = new HarvestPlanningMap()
-                    {
-                        BaseHaliteMap = gameInitializationMessage.MapWithHaliteAmounts,
-                        MyPlayerId = gameInitializationMessage.MyPlayerId,
-                        TurnMessage = turnMessage
-                    };
-
-                    planningMap.Calculate();
-
                     var myPlayerUpdateMessage = turnMessage.PlayerUpdates.Single(message => message.PlayerId == myPlayerId);
                     var myPlayerInitializationMessage = gameInitializationMessage.Players.Single(message => message.PlayerId == myPlayerId);
                     var returnMap = new ReturnMap()
@@ -64,64 +55,19 @@
                         Logger = logger
                     };
 
-                    for (int i = 0; i < 100; i++)
+                    returnMap.Calculate();
+
+                    var harvestPlanningMap = new HarvestPlanningMap()
                     {
-                        tuningSettings.ReturnPathDistancePenaltyMultiplier = i * 0.01;
-                        returnMap.Calculate();
+                        BaseHaliteMap = gameInitializationMessage.MapWithHaliteAmounts,
+                        MyPlayerId = gameInitializationMessage.MyPlayerId,
+                        TurnMessage = turnMessage,
+                        ReturnMap = returnMap,
+                        TuningSettings = tuningSettings,
+                        Logger = logger
+                    };
 
-                        var painter = new MapLayerPainter()
-                        {
-                            CellPixelSize = 8
-                        };
-
-                        //string svg = painter.MapLayerToSvg(gameInitializationMessage.MapWithHaliteAmounts);
-                        //File.WriteAllText("haliteMap.svg", svg);
-
-                        var intPathCosts = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
-                        foreach (var position in intPathCosts.AllPositions)
-                        {
-                            intPathCosts[position] = (int)returnMap.PathCosts[position];
-                        }
-
-                        //svg = painter.MapLayerToSvg(intPathCosts);
-                        //File.WriteAllText("returnMapPathCosts.svg", svg);
-
-                        var distances = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
-                        foreach (var position in distances.AllPositions)
-                        {
-                            distances[position] = returnMap.CellData[position].Distance;
-                        }
-
-                        //svg = painter.MapLayerToSvg(distances);
-                        //File.WriteAllText("returnMapDistances.svg", svg);
-
-                        int sumHaliteSum = 0;
-                        int maxSumHalite = int.MinValue;
-                        int distanceSum = 0;
-                        int maxDistance = int.MinValue;
-                        foreach (var position in distances.AllPositions)
-                        {
-                            int distance = distances[position];
-                            distanceSum += distance;
-                            if (distance > maxDistance)
-                            {
-                                maxDistance = distance;
-                            }
-
-                            int sumHalite = returnMap.CellData[position].SumHalite;
-                            sumHaliteSum += sumHalite;
-                            if (sumHalite > maxSumHalite)
-                            {
-                                maxSumHalite = sumHalite;
-                            }
-                        }
-
-                        int averageDistance = distanceSum / (distances.Width * distances.Height);
-                        int averageSumHalite = sumHaliteSum / (distances.Width * distances.Height);
-                        logger.WriteMessage("----- tuningSettings.ReturnPathDistancePenaltyMultiplier = " + tuningSettings.ReturnPathDistancePenaltyMultiplier);
-                        logger.WriteMessage("distanceSum = " + distanceSum + "; averageDistance = " + averageDistance + "; maxDistance = " + maxDistance);
-                        logger.WriteMessage("sumHaliteSum = " + sumHaliteSum + "; averageSumHalite = " + averageSumHalite + "; maxSumHalite = " + maxSumHalite);
-                    }
+                    harvestPlanningMap.Calculate();
                 }
 
                 var commands = new CommandList();
