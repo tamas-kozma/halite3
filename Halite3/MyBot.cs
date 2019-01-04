@@ -64,48 +64,64 @@
                         Logger = logger
                     };
 
-                    returnMap.Calculate();
-
-                    var painter = new MapLayerPainter()
+                    for (int i = 0; i < 100; i++)
                     {
-                        CellPixelSize = 8
-                    };
+                        tuningSettings.ReturnPathDistancePenaltyMultiplier = i * 0.01;
+                        returnMap.Calculate();
 
-                    string svg = painter.MapLayerToSvg(gameInitializationMessage.MapWithHaliteAmounts);
-                    File.WriteAllText("haliteMap.svg", svg);
-
-                    var intPathCosts = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
-                    foreach (var position in intPathCosts.AllPositions)
-                    {
-                        intPathCosts[position] = (int)returnMap.PathCosts[position];
-                    }
-
-                    svg = painter.MapLayerToSvg(intPathCosts);
-                    File.WriteAllText("returnMapPathCosts.svg", svg);
-
-                    var distances = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
-                    foreach (var position in distances.AllPositions)
-                    {
-                        distances[position] = returnMap.CellData[position].Distance;
-                    }
-
-                    svg = painter.MapLayerToSvg(distances);
-                    File.WriteAllText("returnMapDistances.svg", svg);
-
-                    int distanceSum = 0;
-                    int maxDistance = int.MinValue;
-                    foreach (var position in distances.AllPositions)
-                    {
-                        int distance = distances[position];
-                        distanceSum += distance;
-                        if (distance > maxDistance)
+                        var painter = new MapLayerPainter()
                         {
-                            maxDistance = distance;
-                        }
-                    }
+                            CellPixelSize = 8
+                        };
 
-                    int averageDistance = distanceSum / (distances.Width * distances.Height);
-                    logger.WriteMessage("distanceSum = " + distanceSum + "; averageDistance = " + averageDistance + "; maxDistance = " + maxDistance);
+                        //string svg = painter.MapLayerToSvg(gameInitializationMessage.MapWithHaliteAmounts);
+                        //File.WriteAllText("haliteMap.svg", svg);
+
+                        var intPathCosts = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
+                        foreach (var position in intPathCosts.AllPositions)
+                        {
+                            intPathCosts[position] = (int)returnMap.PathCosts[position];
+                        }
+
+                        //svg = painter.MapLayerToSvg(intPathCosts);
+                        //File.WriteAllText("returnMapPathCosts.svg", svg);
+
+                        var distances = new DataMapLayer<int>(returnMap.PathCosts.Width, returnMap.PathCosts.Height);
+                        foreach (var position in distances.AllPositions)
+                        {
+                            distances[position] = returnMap.CellData[position].Distance;
+                        }
+
+                        //svg = painter.MapLayerToSvg(distances);
+                        //File.WriteAllText("returnMapDistances.svg", svg);
+
+                        int sumHaliteSum = 0;
+                        int maxSumHalite = int.MinValue;
+                        int distanceSum = 0;
+                        int maxDistance = int.MinValue;
+                        foreach (var position in distances.AllPositions)
+                        {
+                            int distance = distances[position];
+                            distanceSum += distance;
+                            if (distance > maxDistance)
+                            {
+                                maxDistance = distance;
+                            }
+
+                            int sumHalite = returnMap.CellData[position].SumHalite;
+                            sumHaliteSum += sumHalite;
+                            if (sumHalite > maxSumHalite)
+                            {
+                                maxSumHalite = sumHalite;
+                            }
+                        }
+
+                        int averageDistance = distanceSum / (distances.Width * distances.Height);
+                        int averageSumHalite = sumHaliteSum / (distances.Width * distances.Height);
+                        logger.WriteMessage("----- tuningSettings.ReturnPathDistancePenaltyMultiplier = " + tuningSettings.ReturnPathDistancePenaltyMultiplier);
+                        logger.WriteMessage("distanceSum = " + distanceSum + "; averageDistance = " + averageDistance + "; maxDistance = " + maxDistance);
+                        logger.WriteMessage("sumHaliteSum = " + sumHaliteSum + "; averageSumHalite = " + averageSumHalite + "; maxSumHalite = " + maxSumHalite);
+                    }
                 }
 
                 var commands = new CommandList();

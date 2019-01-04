@@ -2,6 +2,6 @@
 {
     public sealed class TuningSettings
     {
-        public double ReturnPathDistancePenaltyMultiplier { get; set; } = 0d;
+        public double ReturnPathDistancePenaltyMultiplier { get; set; } = 0.5d;
     }
 }

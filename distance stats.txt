@@ -1,4 +1,305 @@
-TODO: Add stats for path costs as well.
+2019-01-04T08:13:04.1951737+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0
+2019-01-04T08:13:04.1955616+01:00: distanceSum = 175774; averageDistance = 42; maxDistance = 90
+2019-01-04T08:13:04.1958660+01:00: sumHaliteSum = 8061827; averageSumHalite = 1968; maxSumHalite = 5260
+2019-01-04T08:13:04.2116760+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,01
+2019-01-04T08:13:04.2120352+01:00: distanceSum = 175202; averageDistance = 42; maxDistance = 90
+2019-01-04T08:13:04.2123529+01:00: sumHaliteSum = 8062008; averageSumHalite = 1968; maxSumHalite = 5260
+2019-01-04T08:13:04.2272820+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,02
+2019-01-04T08:13:04.2275852+01:00: distanceSum = 174682; averageDistance = 42; maxDistance = 90
+2019-01-04T08:13:04.2278311+01:00: sumHaliteSum = 8063128; averageSumHalite = 1968; maxSumHalite = 5260
+2019-01-04T08:13:04.2412210+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,03
+2019-01-04T08:13:04.2415268+01:00: distanceSum = 172318; averageDistance = 42; maxDistance = 90
+2019-01-04T08:13:04.2418304+01:00: sumHaliteSum = 8067265; averageSumHalite = 1969; maxSumHalite = 5260
+2019-01-04T08:13:04.2564118+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,04
+2019-01-04T08:13:04.2567073+01:00: distanceSum = 171800; averageDistance = 41; maxDistance = 90
+2019-01-04T08:13:04.2569608+01:00: sumHaliteSum = 8068700; averageSumHalite = 1969; maxSumHalite = 5260
+2019-01-04T08:13:04.2712018+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,05
+2019-01-04T08:13:04.2714922+01:00: distanceSum = 171058; averageDistance = 41; maxDistance = 89
+2019-01-04T08:13:04.2718065+01:00: sumHaliteSum = 8071911; averageSumHalite = 1970; maxSumHalite = 5260
+2019-01-04T08:13:04.2856591+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,06
+2019-01-04T08:13:04.2859640+01:00: distanceSum = 170580; averageDistance = 41; maxDistance = 89
+2019-01-04T08:13:04.2863099+01:00: sumHaliteSum = 8074013; averageSumHalite = 1971; maxSumHalite = 5260
+2019-01-04T08:13:04.3002913+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,07
+2019-01-04T08:13:04.3006078+01:00: distanceSum = 170242; averageDistance = 41; maxDistance = 89
+2019-01-04T08:13:04.3008640+01:00: sumHaliteSum = 8076157; averageSumHalite = 1971; maxSumHalite = 5576
+2019-01-04T08:13:04.3146315+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,08
+2019-01-04T08:13:04.3149176+01:00: distanceSum = 167098; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3151895+01:00: sumHaliteSum = 8087855; averageSumHalite = 1974; maxSumHalite = 5576
+2019-01-04T08:13:04.3288732+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,09
+2019-01-04T08:13:04.3291551+01:00: distanceSum = 166808; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3294348+01:00: sumHaliteSum = 8090562; averageSumHalite = 1975; maxSumHalite = 5576
+2019-01-04T08:13:04.3437410+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,1
+2019-01-04T08:13:04.3440679+01:00: distanceSum = 165974; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3443933+01:00: sumHaliteSum = 8095950; averageSumHalite = 1976; maxSumHalite = 5576
+2019-01-04T08:13:04.3587522+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,11
+2019-01-04T08:13:04.3590511+01:00: distanceSum = 165464; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3593526+01:00: sumHaliteSum = 8101508; averageSumHalite = 1977; maxSumHalite = 5576
+2019-01-04T08:13:04.3737180+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,12
+2019-01-04T08:13:04.3739960+01:00: distanceSum = 164816; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3742710+01:00: sumHaliteSum = 8107061; averageSumHalite = 1979; maxSumHalite = 5576
+2019-01-04T08:13:04.3880800+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,13
+2019-01-04T08:13:04.3883366+01:00: distanceSum = 164534; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.3886099+01:00: sumHaliteSum = 8110822; averageSumHalite = 1980; maxSumHalite = 5576
+2019-01-04T08:13:04.4024231+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,14
+2019-01-04T08:13:04.4027027+01:00: distanceSum = 163916; averageDistance = 40; maxDistance = 89
+2019-01-04T08:13:04.4030081+01:00: sumHaliteSum = 8117646; averageSumHalite = 1981; maxSumHalite = 5576
+2019-01-04T08:13:04.4175304+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,15
+2019-01-04T08:13:04.4178238+01:00: distanceSum = 163086; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4181330+01:00: sumHaliteSum = 8125129; averageSumHalite = 1983; maxSumHalite = 5576
+2019-01-04T08:13:04.4321464+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,16
+2019-01-04T08:13:04.4325416+01:00: distanceSum = 162816; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4329252+01:00: sumHaliteSum = 8129359; averageSumHalite = 1984; maxSumHalite = 5576
+2019-01-04T08:13:04.4469100+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,17
+2019-01-04T08:13:04.4472025+01:00: distanceSum = 161774; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4474856+01:00: sumHaliteSum = 8138564; averageSumHalite = 1986; maxSumHalite = 5576
+2019-01-04T08:13:04.4621122+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,18
+2019-01-04T08:13:04.4623855+01:00: distanceSum = 161184; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4626994+01:00: sumHaliteSum = 8146455; averageSumHalite = 1988; maxSumHalite = 5576
+2019-01-04T08:13:04.4768031+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,19
+2019-01-04T08:13:04.4770746+01:00: distanceSum = 160820; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4773688+01:00: sumHaliteSum = 8152523; averageSumHalite = 1990; maxSumHalite = 5576
+2019-01-04T08:13:04.4918052+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,2
+2019-01-04T08:13:04.4921105+01:00: distanceSum = 160396; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.4923927+01:00: sumHaliteSum = 8157465; averageSumHalite = 1991; maxSumHalite = 5576
+2019-01-04T08:13:04.5067072+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,21
+2019-01-04T08:13:04.5069997+01:00: distanceSum = 160216; averageDistance = 39; maxDistance = 89
+2019-01-04T08:13:04.5073239+01:00: sumHaliteSum = 8160486; averageSumHalite = 1992; maxSumHalite = 5576
+2019-01-04T08:13:04.5215033+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,22
+2019-01-04T08:13:04.5218241+01:00: distanceSum = 159642; averageDistance = 38; maxDistance = 89
+2019-01-04T08:13:04.5222158+01:00: sumHaliteSum = 8171417; averageSumHalite = 1994; maxSumHalite = 5786
+2019-01-04T08:13:04.5368788+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,23
+2019-01-04T08:13:04.5371687+01:00: distanceSum = 159422; averageDistance = 38; maxDistance = 89
+2019-01-04T08:13:04.5374616+01:00: sumHaliteSum = 8175474; averageSumHalite = 1995; maxSumHalite = 5786
+2019-01-04T08:13:04.5516218+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,24
+2019-01-04T08:13:04.5519262+01:00: distanceSum = 159226; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.5522418+01:00: sumHaliteSum = 8179709; averageSumHalite = 1996; maxSumHalite = 5786
+2019-01-04T08:13:04.5665957+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,25
+2019-01-04T08:13:04.5668643+01:00: distanceSum = 159114; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.5671576+01:00: sumHaliteSum = 8182077; averageSumHalite = 1997; maxSumHalite = 5786
+2019-01-04T08:13:04.5812621+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,26
+2019-01-04T08:13:04.5816812+01:00: distanceSum = 157986; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.5819665+01:00: sumHaliteSum = 8204621; averageSumHalite = 2003; maxSumHalite = 5786
+2019-01-04T08:13:04.5966337+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,27
+2019-01-04T08:13:04.5969442+01:00: distanceSum = 157702; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.5973517+01:00: sumHaliteSum = 8211343; averageSumHalite = 2004; maxSumHalite = 5786
+2019-01-04T08:13:04.6118831+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,28
+2019-01-04T08:13:04.6122274+01:00: distanceSum = 157610; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6125028+01:00: sumHaliteSum = 8212931; averageSumHalite = 2005; maxSumHalite = 5786
+2019-01-04T08:13:04.6267843+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,29
+2019-01-04T08:13:04.6270777+01:00: distanceSum = 157454; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6274425+01:00: sumHaliteSum = 8217583; averageSumHalite = 2006; maxSumHalite = 5786
+2019-01-04T08:13:04.6417591+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,3
+2019-01-04T08:13:04.6420204+01:00: distanceSum = 157154; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6423227+01:00: sumHaliteSum = 8224724; averageSumHalite = 2007; maxSumHalite = 6029
+2019-01-04T08:13:04.6566749+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,31
+2019-01-04T08:13:04.6569695+01:00: distanceSum = 156654; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6573882+01:00: sumHaliteSum = 8237041; averageSumHalite = 2010; maxSumHalite = 6029
+2019-01-04T08:13:04.6718805+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,32
+2019-01-04T08:13:04.6721859+01:00: distanceSum = 156448; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6726319+01:00: sumHaliteSum = 8241896; averageSumHalite = 2012; maxSumHalite = 6029
+2019-01-04T08:13:04.6869644+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,33
+2019-01-04T08:13:04.6872595+01:00: distanceSum = 156274; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.6876033+01:00: sumHaliteSum = 8246870; averageSumHalite = 2013; maxSumHalite = 6029
+2019-01-04T08:13:04.7020649+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,34
+2019-01-04T08:13:04.7023886+01:00: distanceSum = 156024; averageDistance = 38; maxDistance = 88
+2019-01-04T08:13:04.7026306+01:00: sumHaliteSum = 8255365; averageSumHalite = 2015; maxSumHalite = 6029
+2019-01-04T08:13:04.7171838+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,35
+2019-01-04T08:13:04.7174703+01:00: distanceSum = 155684; averageDistance = 38; maxDistance = 87
+2019-01-04T08:13:04.7177547+01:00: sumHaliteSum = 8263177; averageSumHalite = 2017; maxSumHalite = 6029
+2019-01-04T08:13:04.7322582+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,36
+2019-01-04T08:13:04.7325760+01:00: distanceSum = 155438; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.7328681+01:00: sumHaliteSum = 8268580; averageSumHalite = 2018; maxSumHalite = 6029
+2019-01-04T08:13:04.7474660+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,37
+2019-01-04T08:13:04.7477380+01:00: distanceSum = 155310; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.7480233+01:00: sumHaliteSum = 8271682; averageSumHalite = 2019; maxSumHalite = 6029
+2019-01-04T08:13:04.7626431+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,38
+2019-01-04T08:13:04.7629621+01:00: distanceSum = 154706; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.7632452+01:00: sumHaliteSum = 8290322; averageSumHalite = 2024; maxSumHalite = 6029
+2019-01-04T08:13:04.7777637+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,39
+2019-01-04T08:13:04.7780476+01:00: distanceSum = 154414; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.7784321+01:00: sumHaliteSum = 8300054; averageSumHalite = 2026; maxSumHalite = 6029
+2019-01-04T08:13:04.7929775+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,4
+2019-01-04T08:13:04.7932538+01:00: distanceSum = 153176; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.7935549+01:00: sumHaliteSum = 8327870; averageSumHalite = 2033; maxSumHalite = 6029
+2019-01-04T08:13:04.8079887+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,41
+2019-01-04T08:13:04.8082722+01:00: distanceSum = 153026; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.8086203+01:00: sumHaliteSum = 8332636; averageSumHalite = 2034; maxSumHalite = 6029
+2019-01-04T08:13:04.8233094+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,42
+2019-01-04T08:13:04.8236272+01:00: distanceSum = 152900; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.8239586+01:00: sumHaliteSum = 8336668; averageSumHalite = 2035; maxSumHalite = 6108
+2019-01-04T08:13:04.8387350+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,43
+2019-01-04T08:13:04.8390899+01:00: distanceSum = 152766; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.8394722+01:00: sumHaliteSum = 8341870; averageSumHalite = 2036; maxSumHalite = 6108
+2019-01-04T08:13:04.8541185+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,44
+2019-01-04T08:13:04.8544123+01:00: distanceSum = 152470; averageDistance = 37; maxDistance = 87
+2019-01-04T08:13:04.8547301+01:00: sumHaliteSum = 8351129; averageSumHalite = 2038; maxSumHalite = 6108
+2019-01-04T08:13:04.8695723+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,45
+2019-01-04T08:13:04.8698704+01:00: distanceSum = 148772; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.8702010+01:00: sumHaliteSum = 8408316; averageSumHalite = 2052; maxSumHalite = 6108
+2019-01-04T08:13:04.8849914+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,46
+2019-01-04T08:13:04.8852685+01:00: distanceSum = 148598; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.8856650+01:00: sumHaliteSum = 8412757; averageSumHalite = 2053; maxSumHalite = 6108
+2019-01-04T08:13:04.9007377+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,47
+2019-01-04T08:13:04.9010815+01:00: distanceSum = 148414; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9013711+01:00: sumHaliteSum = 8418805; averageSumHalite = 2055; maxSumHalite = 6108
+2019-01-04T08:13:04.9159982+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,48
+2019-01-04T08:13:04.9163031+01:00: distanceSum = 148280; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9167188+01:00: sumHaliteSum = 8424127; averageSumHalite = 2056; maxSumHalite = 6108
+2019-01-04T08:13:04.9312744+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,49
+2019-01-04T08:13:04.9315417+01:00: distanceSum = 148150; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9318599+01:00: sumHaliteSum = 8429043; averageSumHalite = 2057; maxSumHalite = 6108
+2019-01-04T08:13:04.9466871+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,5
+2019-01-04T08:13:04.9470297+01:00: distanceSum = 148026; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9473615+01:00: sumHaliteSum = 8433713; averageSumHalite = 2059; maxSumHalite = 6108
+2019-01-04T08:13:04.9621366+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,51
+2019-01-04T08:13:04.9624338+01:00: distanceSum = 147938; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9627696+01:00: sumHaliteSum = 8437339; averageSumHalite = 2059; maxSumHalite = 6108
+2019-01-04T08:13:04.9775425+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,52
+2019-01-04T08:13:04.9779346+01:00: distanceSum = 147646; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9782605+01:00: sumHaliteSum = 8446914; averageSumHalite = 2062; maxSumHalite = 6108
+2019-01-04T08:13:04.9930372+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,53
+2019-01-04T08:13:04.9933109+01:00: distanceSum = 147500; averageDistance = 36; maxDistance = 85
+2019-01-04T08:13:04.9936496+01:00: sumHaliteSum = 8450703; averageSumHalite = 2063; maxSumHalite = 6108
+2019-01-04T08:13:05.0083653+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,54
+2019-01-04T08:13:05.0087104+01:00: distanceSum = 147344; averageDistance = 35; maxDistance = 84
+2019-01-04T08:13:05.0090949+01:00: sumHaliteSum = 8456685; averageSumHalite = 2064; maxSumHalite = 6108
+2019-01-04T08:13:05.0239332+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,55
+2019-01-04T08:13:05.0242112+01:00: distanceSum = 147196; averageDistance = 35; maxDistance = 84
+2019-01-04T08:13:05.0245302+01:00: sumHaliteSum = 8462194; averageSumHalite = 2065; maxSumHalite = 6108
+2019-01-04T08:13:05.0393639+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,56
+2019-01-04T08:13:05.0396286+01:00: distanceSum = 147174; averageDistance = 35; maxDistance = 84
+2019-01-04T08:13:05.0399237+01:00: sumHaliteSum = 8463229; averageSumHalite = 2066; maxSumHalite = 6108
+2019-01-04T08:13:05.0545222+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,57
+2019-01-04T08:13:05.0548172+01:00: distanceSum = 147140; averageDistance = 35; maxDistance = 84
+2019-01-04T08:13:05.0551547+01:00: sumHaliteSum = 8465172; averageSumHalite = 2066; maxSumHalite = 6108
+2019-01-04T08:13:05.0700177+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,58
+2019-01-04T08:13:05.0703180+01:00: distanceSum = 146922; averageDistance = 35; maxDistance = 84
+2019-01-04T08:13:05.0707880+01:00: sumHaliteSum = 8477135; averageSumHalite = 2069; maxSumHalite = 6108
+2019-01-04T08:13:05.0856887+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,59
+2019-01-04T08:13:05.0859701+01:00: distanceSum = 146798; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.0862951+01:00: sumHaliteSum = 8482625; averageSumHalite = 2070; maxSumHalite = 6439
+2019-01-04T08:13:05.1011472+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,6
+2019-01-04T08:13:05.1014205+01:00: distanceSum = 146674; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1017271+01:00: sumHaliteSum = 8489102; averageSumHalite = 2072; maxSumHalite = 6439
+2019-01-04T08:13:05.1166925+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,61
+2019-01-04T08:13:05.1170055+01:00: distanceSum = 146414; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1174028+01:00: sumHaliteSum = 8499147; averageSumHalite = 2074; maxSumHalite = 6439
+2019-01-04T08:13:05.1323041+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,62
+2019-01-04T08:13:05.1325799+01:00: distanceSum = 146340; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1329956+01:00: sumHaliteSum = 8502093; averageSumHalite = 2075; maxSumHalite = 6439
+2019-01-04T08:13:05.1480298+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,63
+2019-01-04T08:13:05.1483339+01:00: distanceSum = 146158; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1486217+01:00: sumHaliteSum = 8511071; averageSumHalite = 2077; maxSumHalite = 6439
+2019-01-04T08:13:05.1636366+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,64
+2019-01-04T08:13:05.1640331+01:00: distanceSum = 145336; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1644051+01:00: sumHaliteSum = 8557355; averageSumHalite = 2089; maxSumHalite = 6439
+2019-01-04T08:13:05.1797806+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,65
+2019-01-04T08:13:05.1801510+01:00: distanceSum = 145000; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1805154+01:00: sumHaliteSum = 8560222; averageSumHalite = 2089; maxSumHalite = 6439
+2019-01-04T08:13:05.1955799+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,66
+2019-01-04T08:13:05.1960076+01:00: distanceSum = 144864; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.1963758+01:00: sumHaliteSum = 8566110; averageSumHalite = 2091; maxSumHalite = 6439
+2019-01-04T08:13:05.2122063+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,67
+2019-01-04T08:13:05.2126284+01:00: distanceSum = 144686; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2130624+01:00: sumHaliteSum = 8575366; averageSumHalite = 2093; maxSumHalite = 6439
+2019-01-04T08:13:05.2290580+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,68
+2019-01-04T08:13:05.2294720+01:00: distanceSum = 144496; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2298693+01:00: sumHaliteSum = 8583510; averageSumHalite = 2095; maxSumHalite = 6439
+2019-01-04T08:13:05.2452302+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,69
+2019-01-04T08:13:05.2456271+01:00: distanceSum = 144348; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2460629+01:00: sumHaliteSum = 8592984; averageSumHalite = 2097; maxSumHalite = 6439
+2019-01-04T08:13:05.2613875+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,7
+2019-01-04T08:13:05.2618165+01:00: distanceSum = 144292; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2622010+01:00: sumHaliteSum = 8596417; averageSumHalite = 2098; maxSumHalite = 6439
+2019-01-04T08:13:05.2774148+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,71
+2019-01-04T08:13:05.2778830+01:00: distanceSum = 144182; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2783560+01:00: sumHaliteSum = 8602035; averageSumHalite = 2100; maxSumHalite = 6439
+2019-01-04T08:13:05.2935216+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,72
+2019-01-04T08:13:05.2938650+01:00: distanceSum = 143908; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.2942503+01:00: sumHaliteSum = 8615714; averageSumHalite = 2103; maxSumHalite = 6439
+2019-01-04T08:13:05.3098828+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,73
+2019-01-04T08:13:05.3102475+01:00: distanceSum = 143900; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.3105909+01:00: sumHaliteSum = 8616429; averageSumHalite = 2103; maxSumHalite = 6439
+2019-01-04T08:13:05.3266614+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,74
+2019-01-04T08:13:05.3271647+01:00: distanceSum = 143804; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.3275149+01:00: sumHaliteSum = 8620900; averageSumHalite = 2104; maxSumHalite = 6439
+2019-01-04T08:13:05.3427865+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,75
+2019-01-04T08:13:05.3432339+01:00: distanceSum = 143620; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.3435966+01:00: sumHaliteSum = 8629131; averageSumHalite = 2106; maxSumHalite = 6439
+2019-01-04T08:13:05.3588099+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,76
+2019-01-04T08:13:05.3591123+01:00: distanceSum = 143506; averageDistance = 35; maxDistance = 83
+2019-01-04T08:13:05.3593582+01:00: sumHaliteSum = 8635244; averageSumHalite = 2108; maxSumHalite = 6523
+2019-01-04T08:13:05.3743406+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,77
+2019-01-04T08:13:05.3746905+01:00: distanceSum = 143414; averageDistance = 35; maxDistance = 82
+2019-01-04T08:13:05.3749980+01:00: sumHaliteSum = 8640264; averageSumHalite = 2109; maxSumHalite = 6523
+2019-01-04T08:13:05.3900309+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,78
+2019-01-04T08:13:05.3903431+01:00: distanceSum = 143358; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.3906720+01:00: sumHaliteSum = 8642872; averageSumHalite = 2110; maxSumHalite = 6523
+2019-01-04T08:13:05.4057104+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,79
+2019-01-04T08:13:05.4059709+01:00: distanceSum = 143126; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4063019+01:00: sumHaliteSum = 8659764; averageSumHalite = 2114; maxSumHalite = 6523
+2019-01-04T08:13:05.4213447+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,8
+2019-01-04T08:13:05.4216608+01:00: distanceSum = 143108; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4219186+01:00: sumHaliteSum = 8660504; averageSumHalite = 2114; maxSumHalite = 6523
+2019-01-04T08:13:05.4370952+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,81
+2019-01-04T08:13:05.4373741+01:00: distanceSum = 143096; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4376713+01:00: sumHaliteSum = 8661289; averageSumHalite = 2114; maxSumHalite = 6523
+2019-01-04T08:13:05.4533530+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,82
+2019-01-04T08:13:05.4536895+01:00: distanceSum = 142990; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4539709+01:00: sumHaliteSum = 8669454; averageSumHalite = 2116; maxSumHalite = 6523
+2019-01-04T08:13:05.4691086+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,83
+2019-01-04T08:13:05.4694426+01:00: distanceSum = 142816; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4697514+01:00: sumHaliteSum = 8678649; averageSumHalite = 2118; maxSumHalite = 6523
+2019-01-04T08:13:05.4848489+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,84
+2019-01-04T08:13:05.4851098+01:00: distanceSum = 142310; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.4854378+01:00: sumHaliteSum = 8701663; averageSumHalite = 2124; maxSumHalite = 6523
+2019-01-04T08:13:05.5005062+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,85
+2019-01-04T08:13:05.5008069+01:00: distanceSum = 142170; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5011336+01:00: sumHaliteSum = 8709802; averageSumHalite = 2126; maxSumHalite = 6523
+2019-01-04T08:13:05.5162277+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,86
+2019-01-04T08:13:05.5165373+01:00: distanceSum = 141778; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5168504+01:00: sumHaliteSum = 8727428; averageSumHalite = 2130; maxSumHalite = 6523
+2019-01-04T08:13:05.5319663+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,87
+2019-01-04T08:13:05.5322878+01:00: distanceSum = 141716; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5325641+01:00: sumHaliteSum = 8732651; averageSumHalite = 2131; maxSumHalite = 6523
+2019-01-04T08:13:05.5481560+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,88
+2019-01-04T08:13:05.5484669+01:00: distanceSum = 141642; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5487697+01:00: sumHaliteSum = 8736531; averageSumHalite = 2132; maxSumHalite = 6523
+2019-01-04T08:13:05.5644254+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,89
+2019-01-04T08:13:05.5647098+01:00: distanceSum = 141612; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5649835+01:00: sumHaliteSum = 8739273; averageSumHalite = 2133; maxSumHalite = 6523
+2019-01-04T08:13:05.5806972+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,9
+2019-01-04T08:13:05.5809961+01:00: distanceSum = 141588; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5813938+01:00: sumHaliteSum = 8740528; averageSumHalite = 2133; maxSumHalite = 6523
+2019-01-04T08:13:05.5964691+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,91
+2019-01-04T08:13:05.5967351+01:00: distanceSum = 141514; averageDistance = 34; maxDistance = 82
+2019-01-04T08:13:05.5970259+01:00: sumHaliteSum = 8745318; averageSumHalite = 2135; maxSumHalite = 6523
+2019-01-04T08:13:05.6122068+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,92
+2019-01-04T08:13:05.6126019+01:00: distanceSum = 141356; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6130078+01:00: sumHaliteSum = 8754681; averageSumHalite = 2137; maxSumHalite = 6523
+2019-01-04T08:13:05.6282050+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,93
+2019-01-04T08:13:05.6285176+01:00: distanceSum = 141258; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6289025+01:00: sumHaliteSum = 8761036; averageSumHalite = 2138; maxSumHalite = 6523
+2019-01-04T08:13:05.6440017+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,94
+2019-01-04T08:13:05.6442775+01:00: distanceSum = 141174; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6446641+01:00: sumHaliteSum = 8767042; averageSumHalite = 2140; maxSumHalite = 6523
+2019-01-04T08:13:05.6600238+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,95
+2019-01-04T08:13:05.6602915+01:00: distanceSum = 140934; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6606474+01:00: sumHaliteSum = 8785379; averageSumHalite = 2144; maxSumHalite = 6523
+2019-01-04T08:13:05.6762670+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,96
+2019-01-04T08:13:05.6765659+01:00: distanceSum = 140840; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6768845+01:00: sumHaliteSum = 8791393; averageSumHalite = 2146; maxSumHalite = 6523
+2019-01-04T08:13:05.6920616+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,97
+2019-01-04T08:13:05.6923284+01:00: distanceSum = 140832; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.6926304+01:00: sumHaliteSum = 8792099; averageSumHalite = 2146; maxSumHalite = 6523
+2019-01-04T08:13:05.7078306+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,98
+2019-01-04T08:13:05.7081077+01:00: distanceSum = 140734; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.7083771+01:00: sumHaliteSum = 8798607; averageSumHalite = 2148; maxSumHalite = 6523
+2019-01-04T08:13:05.7242675+01:00: ----- tuningSettings.ReturnPathDistancePenaltyMultiplier = 0,99
+2019-01-04T08:13:05.7246293+01:00: distanceSum = 140690; averageDistance = 34; maxDistance = 81
+2019-01-04T08:13:05.7249594+01:00: sumHaliteSum = 8803035; averageSumHalite = 2149; maxSumHalite = 6523
+
+-----------------------------------
 
 ReturnPathDistancePenaltyMultiplier = 1
 distanceSum = 138540; averageDistance = 33; maxDistance = 76
