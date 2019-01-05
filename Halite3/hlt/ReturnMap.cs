@@ -1,6 +1,5 @@
 ﻿namespace Halite3.hlt
 {
-    using System;
     using System.Diagnostics;
     using System.Linq;
 
@@ -10,8 +9,7 @@
 
         public TuningSettings TuningSettings { get; set; }
         public DataMapLayer<int> HaliteMap { get; set; }
-        public PlayerInitializationMessage MyPlayerInitializationMessage { get; set; }
-        public PlayerUpdateMessage MyPlayerUpdateMessage { get; set; }
+        public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
 
         public DataMapLayer<double> PathCosts { get; private set; }
@@ -19,12 +17,7 @@
 
         public void Calculate()
         {
-            dropoffPositions = new Position[MyPlayerUpdateMessage.Dropoffs.Length + 1];
-            dropoffPositions[0] = MyPlayerInitializationMessage.ShipyardPosition;
-            for (int i = 0; i < MyPlayerUpdateMessage.Dropoffs.Length; i++)
-            {
-                dropoffPositions[i + 1] = MyPlayerUpdateMessage.Dropoffs[i].Position;
-            }
+            dropoffPositions = MyPlayer.DropoffPositions.ToArray();
 
             PathCosts = new DataMapLayer<double>(HaliteMap.Width, HaliteMap.Height);
             PathCosts.Fill(double.MaxValue);

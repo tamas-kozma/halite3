@@ -15,9 +15,9 @@
         private readonly HaliteEngineInterface haliteEngineInterface;
         private readonly TuningSettings tuningSettings;
 
-        private string myPlayerId;
-
         private GameInitializationMessage gameInitializationMessage;
+        private MyPlayer myPlayer;
+        private DataMapLayer<int> haliteMap;
 
         public MyBot(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -31,9 +31,14 @@
         {
             gameInitializationMessage = haliteEngineInterface.ReadGameInitializationMessage();
             GameConstants.PopulateFrom(gameInitializationMessage.GameConstants);
+
+            myPlayer = new MyPlayer();
+            myPlayer.Initialize(gameInitializationMessage);
+
+            haliteMap = new DataMapLayer<int>(gameInitializationMessage.MapWithHaliteAmounts);
+
             haliteEngineInterface.Ready(Name);
 
-            myPlayerId = gameInitializationMessage.MyPlayerId;
             while (true)
             {
                 var turnMessage = haliteEngineInterface.ReadTurnMessage(gameInitializationMessage);
@@ -42,25 +47,25 @@
                     return;
                 }
 
+                myPlayer.Update(turnMessage);
+                UpdateHaliteMap(turnMessage);
+
                 if (gameInitializationMessage.MyPlayerId == "0" && turnMessage.TurnNumber == 1)
                 {
-                    var myPlayerUpdateMessage = turnMessage.PlayerUpdates.Single(message => message.PlayerId == myPlayerId);
-                    var myPlayerInitializationMessage = gameInitializationMessage.Players.Single(message => message.PlayerId == myPlayerId);
                     var returnMap = new ReturnMap()
                     {
-                        HaliteMap = gameInitializationMessage.MapWithHaliteAmounts,
-                        MyPlayerInitializationMessage = myPlayerInitializationMessage,
-                        MyPlayerUpdateMessage = myPlayerUpdateMessage,
+                        HaliteMap = haliteMap,
                         TuningSettings = tuningSettings,
-                        Logger = logger
+                        Logger = logger,
+                        MyPlayer = myPlayer
                     };
 
                     returnMap.Calculate();
 
                     var harvestPlanningMap = new HarvestPlanningMap()
                     {
-                        BaseHaliteMap = gameInitializationMessage.MapWithHaliteAmounts,
-                        MyPlayerId = gameInitializationMessage.MyPlayerId,
+                        BaseHaliteMap = haliteMap,
+                        MyPlayerId = myPlayer.Id,
                         TurnMessage = turnMessage,
                         ReturnMap = returnMap,
                         TuningSettings = tuningSettings,
@@ -110,6 +115,14 @@
             catch (Exception exception)
             {
                 logger.WriteMessage(exception.ToString());
+            }
+        }
+
+        private void UpdateHaliteMap(TurnMessage turnMessage)
+        {
+            foreach (var cellUpdateMessage in turnMessage.MapUpdates)
+            {
+                haliteMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
             }
         }
     }

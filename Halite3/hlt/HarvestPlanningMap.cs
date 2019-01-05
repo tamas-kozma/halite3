@@ -1,21 +1,18 @@
 ﻿namespace Halite3.hlt
 {
     using System;
-    using System.Collections.Generic;
-    using System.IO;
     using System.Linq;
-    using System.Text;
 
     public class HarvestPlanningMap
     {
         private DataMapLayer<int>[] sumLayers;
         private DataMapLayer<double> adjustedHaliteMap;
 
+        public TuningSettings TuningSettings { get; set; }
         public DataMapLayer<int> BaseHaliteMap { get; set; }
         public string MyPlayerId { get; set; }
         public TurnMessage TurnMessage { get; set; }
         public ReturnMap ReturnMap { get; set; }
-        public TuningSettings TuningSettings { get; set; }
         public Logger Logger { get; set; }
 
         public void Calculate()
