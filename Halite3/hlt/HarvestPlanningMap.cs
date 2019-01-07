@@ -7,6 +7,7 @@
     {
         private DataMapLayer<int>[] sumLayers;
         private DataMapLayer<double> adjustedHaliteMap;
+        private 
 
         public TuningSettings TuningSettings { get; set; }
         public DataMapLayer<int> BaseHaliteMap { get; set; }
@@ -15,7 +16,35 @@
         public ReturnMap ReturnMap { get; set; }
         public Logger Logger { get; set; }
 
+        public DataMapLayer<int> HarvestPlan { get; set; }
+
         public void Calculate()
+        {
+            CalculateAdjustedHaliteMap();
+            CalculateSumLayers();
+        }
+
+        private void CalculateHarvestPlan()
+        {
+            HarvestPlan = new DataMapLayer<int>(sumLayers[0]);
+            foreach (var position in HarvestPlan.AllPositions)
+            {
+                var outerRectangle = new Rectangle(position.Column, position.Row, position.Column, position.Row);
+                var innerRectangle = default(Rectangle);
+                int cellSize = 1;
+                for (int i = 0; i < sumLayers.Length; i++)
+                {
+                    innerRectangle = outerRectangle;
+                    //outerRectangle
+                    //var sumLayer = sumLayers[i];
+                    //row1 -= 
+                    cellSize *= 2;
+                }
+
+            }
+        }
+
+        private void CalculateAdjustedHaliteMap()
         {
             adjustedHaliteMap = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
             foreach (var position in BaseHaliteMap.AllPositions)
@@ -29,8 +58,8 @@
             var opponentHarvesterPositions = TurnMessage.PlayerUpdates
                 .Where(message => message.PlayerId != MyPlayerId)
                 .SelectMany(message => message.Ships)
-                .Where(shipMessage => 
-                    shipMessage.Halite > TuningSettings.HarvestPlanningMinOpponentHarvesterHalite 
+                .Where(shipMessage =>
+                    shipMessage.Halite > TuningSettings.HarvestPlanningMinOpponentHarvesterHalite
                     && shipMessage.Halite < TuningSettings.HarvestPlanningMaxOpponentHarvesterHalite)
                 .Select(shipMessage => shipMessage.Position);
 
@@ -47,8 +76,6 @@
                     adjustedHaliteMap[radiusPosition] = adjustedHalite;
                 }
             }
-
-            CalculateSumLayers();
         }
 
         private void CalculateSumLayers()
@@ -86,6 +113,29 @@
 
                     layer.SetAt(position, sum);
                 }
+            }
+        }
+
+        private struct RingCell
+        {
+            private readonly int layerIndex;
+            private readonly Position position;
+            private readonly int distance;
+
+            public RingCell(Position position, int distance)
+            {
+                this.position = position;
+                this.distance = distance;
+            }
+
+            public Position Position
+            {
+                get { return position; }
+            }
+
+            public int Distance
+            {
+                get { return distance; }
             }
         }
     }

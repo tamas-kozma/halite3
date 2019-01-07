@@ -79,6 +79,26 @@
             }
         }
 
+        public int NormalizeNonNegativeColumn(int column)
+        {
+            return column % Width;
+        }
+
+        public int NormalizeNonNegativeRow(int row)
+        {
+            return row % Height;
+        }
+
+        public int NormalizeSingleNegativeColumn(int column)
+        {
+            return (column + Width) % Width;
+        }
+
+        public int NormalizeSingleNegativeRow(int row)
+        {
+            return (row + Height) % Height;
+        }
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
@@ -87,26 +107,6 @@
         protected int PositionToArrayIndex(Position position)
         {
             return position.Row * Width + position.Column;
-        }
-
-        private int NormalizeNonNegativeColumn(int column)
-        {
-            return column % Width;
-        }
-
-        private int NormalizeNonNegativeRow(int row)
-        {
-            return row % Height;
-        }
-
-        private int NormalizeSingleNegativeColumn(int column)
-        {
-            return (column + Width) % Width;
-        }
-
-        private int NormalizeSingleNegativeRow(int row)
-        {
-            return (row + Height) % Height;
         }
     }
 }

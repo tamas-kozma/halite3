@@ -53,7 +53,15 @@
 ** Resources along paths where inbound ships go should get bonuses
 *** That should help build roads
 *** The paths need to be detected by scent left by inbound ships traveling them
-
+* Harvest planning map issues
+** Going between two rich areas, because halfway between them the ship is closer to both
+***	Mitigated by using squared distance penalties
+** If using multiple rings, then a more distance ring can reach a local maximum before the closer ring can take over
+*** Maybe fixed by rings that overlap enough, but then there will be too many source cells to calculate with
+** If using information from all of the map in a single plan, then local variation will hide distant smells
+*** Find a magical function that somehow fixes this, or use multiple rings
+** Screw all that
+*** I can just use the flooding local maxima approach instead and avoid all the above (but we'll see what other problems appear then)
 
 
 
