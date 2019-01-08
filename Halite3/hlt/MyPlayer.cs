@@ -6,9 +6,9 @@
 
     public sealed class MyPlayer
     {
-        public string Id { get; set; }
-        public Position ShipyardPosition { get; set; }
-        public int Halite { get; set; }
+        public string Id { get; private set; }
+        public Position ShipyardPosition { get; private set; }
+        public int Halite { get; private set; }
 
         /// <summary>
         /// Including the shipyard.
@@ -22,7 +22,8 @@
         /// </summary>
         public List<MyShip> Shipwrecks { get; private set; } = new List<MyShip>();
 
-        public MyShip NewShip { get; set; }
+        public MyShip NewShip { get; private set; }
+        public DataMapLayer<MyShip> ShipMap { get; private set; }
 
         public void BuildShip()
         {
@@ -32,7 +33,8 @@
             {
                 Halite = 0,
                 Id = null,
-                Position = ShipyardPosition
+                Position = ShipyardPosition,
+                Role = ShipRole.Outbound
             };
         }
 
@@ -44,6 +46,7 @@
             ShipyardPosition = myPlayerMessage.ShipyardPosition;
             Halite = 5000;
             DropoffPositions.Add(ShipyardPosition);
+            ShipMap = new DataMapLayer<MyShip>(initializationMessage.MapWithHaliteAmounts.Width, initializationMessage.MapWithHaliteAmounts.Height);
         }
 
         public void Update(TurnMessage turnMessage)
@@ -81,6 +84,7 @@
                 {
                     NewShip.Id = newShipMessage.ShipId;
                     Ships.Add(NewShip);
+                    ShipMap[NewShip.Position] = NewShip;
                 }
             }
 
@@ -94,6 +98,7 @@
                 if (!shipMessagesById.TryGetValue(ship.Id, out var shipMessage))
                 {
                     Shipwrecks.Add(ship);
+                    ShipMap[ship.Position] = null;
                     Ships.RemoveAt(i);
                     i--;
                     continue;

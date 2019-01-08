@@ -8,6 +8,7 @@
     {
         public TuningSettings TuningSettings { get; set; }
         public AdjustedHaliteMap AdjustedHaliteMap { get; set; }
+        public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
 
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
@@ -95,6 +96,11 @@
                 double valueAtCell = adjustedHaliteValues[position];
                 double averageAtCell = DiscAverageLayer[position];
                 HarvestAreaMap[position] = (valueAtCell * centerWeight + averageAtCell) / (centerWeight + 1);
+            }
+
+            foreach (var position in MyPlayer.DropoffPositions)
+            {
+                HarvestAreaMap[position] = 0;
             }
         }
     }
