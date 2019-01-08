@@ -102,6 +102,7 @@
 
             tokens = ReadTokenString();
             int mapUpdateMessageCount = tokens.ReadInteger();
+            message.MapUpdates = new MapCellHaliteUpdateMessage[mapUpdateMessageCount];
             for (int j = 0; j < mapUpdateMessageCount; j++)
             {
                 var cellUpdateMessage = new MapCellHaliteUpdateMessage();

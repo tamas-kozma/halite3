@@ -10,7 +10,7 @@
         public string MapLayerToSvg(MapLayer<int> map)
         {
             int maxValue = 1;
-            foreach (var value in map)
+            foreach (int value in map)
             {
                 if (value > maxValue)
                 {
@@ -19,6 +19,32 @@
             }
 
             return MapLayerToSvg(map, maxValue);
+        }
+
+        public string MapLayerToSvg(MapLayer<double> map)
+        {
+            double maxValue = 1;
+            foreach (double value in map)
+            {
+                if (value > maxValue)
+                {
+                    maxValue = value;
+                }
+            }
+
+            return MapLayerToSvg(map, maxValue);
+        }
+
+        public string MapLayerToSvg(MapLayer<double> map, double maxValue)
+        {
+            var intMap = new DataMapLayer<int>(map.Width, map.Height);
+            foreach (var position in intMap.AllPositions)
+            {
+                intMap[position] = (int)Math.Round(map.GetAt(position));
+            }
+
+            int intMaxValue = (int)Math.Round(maxValue);
+            return MapLayerToSvg(intMap, intMaxValue);
         }
 
         public string MapLayerToSvg(MapLayer<int> map, int maxValue)
@@ -35,10 +61,13 @@
             builder.AppendLine("<svg width=\"" + imageWidth + "\" height=\"" + imageHeight + "\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\">");
             foreach (var position in map.AllPositions)
             {
-                int colorIntensity = (int)(((map.GetAt(position) * 256d) / maxValue));
+                int normalizedValue = Math.Min((int)(((map.GetAt(position) * 255d) / maxValue)), 255);
+                int red = normalizedValue;
+                int blue = 255 - normalizedValue;
+                int green = normalizedValue;
                 int x = position.Column * CellPixelSize;
                 int y = position.Row * CellPixelSize;
-                builder.AppendLine("\t<rect x=\"" + x + "\" y=\"" + y + "\" width=\"" + CellPixelSize + "\" height=\"" + CellPixelSize + "\" stroke-width=\"0\" fill=\"rgb(" + colorIntensity + ", " + colorIntensity + ", " + colorIntensity + ")\"/>");
+                builder.AppendLine("\t<rect x=\"" + x + "\" y=\"" + y + "\" width=\"" + CellPixelSize + "\" height=\"" + CellPixelSize + "\" stroke-width=\"0\" fill=\"rgb(" + red + ", " + green + ", " + blue + ")\"/>");
             }
 
             builder.AppendLine("</svg>");

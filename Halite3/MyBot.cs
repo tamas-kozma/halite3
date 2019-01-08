@@ -15,6 +15,8 @@
         private readonly HaliteEngineInterface haliteEngineInterface;
         private readonly TuningSettings tuningSettings;
 
+        private readonly MapLayerPainter painter;
+
         private GameInitializationMessage gameInitializationMessage;
         private MyPlayer myPlayer;
         private DataMapLayer<int> haliteMap;
@@ -25,6 +27,9 @@
             this.random = random;
             this.haliteEngineInterface = haliteEngineInterface;
             this.tuningSettings = tuningSettings;
+
+            painter = new MapLayerPainter();
+            painter.CellPixelSize = 8;
         }
 
         public void Play()
@@ -50,7 +55,7 @@
                 myPlayer.Update(turnMessage);
                 UpdateHaliteMap(turnMessage);
 
-                if (gameInitializationMessage.MyPlayerId == "0" && turnMessage.TurnNumber == 1)
+                if (turnMessage.TurnNumber == 1)
                 {
                     var returnMap = new ReturnMap()
                     {
@@ -62,17 +67,25 @@
 
                     returnMap.Calculate();
 
-                    var harvestPlanningMap = new HarvestPlanningMap()
+                    var outboundMap = new OutboundMap()
                     {
                         BaseHaliteMap = haliteMap,
-                        MyPlayerId = myPlayer.Id,
+                        GameInitializationMessage = gameInitializationMessage,
                         TurnMessage = turnMessage,
                         ReturnMap = returnMap,
                         TuningSettings = tuningSettings,
                         Logger = logger
                     };
 
-                    harvestPlanningMap.Calculate();
+                    outboundMap.Calculate();
+
+                    PaintMap(haliteMap, "haliteMap");
+                    PaintMap(returnMap.PathCosts, "returnPathCosts");
+                    PaintMap(outboundMap.AdjustedHaliteMap, "outboundAdjustedHaliteMap");
+                    PaintMap(outboundMap.DiscAverageLayer, "outboundAdjustedAverageHaliteMap");
+                    PaintMap(outboundMap.HarvestAreaMap, "outboundHarvestAreas");
+                    PaintMap(outboundMap.OutboundPathCellValues, "outboundCellValues");
+                    PaintMap(outboundMap.OutboundPaths, "outboundPaths");
                 }
 
                 var commands = new CommandList();
@@ -124,6 +137,23 @@
             {
                 haliteMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
             }
+        }
+
+        private void PaintMap(MapLayer<int> map, string name)
+        {
+            string svg = painter.MapLayerToSvg(map);
+            PrintSvg(svg, name);
+        }
+
+        private void PaintMap(MapLayer<double> map, string name)
+        {
+            string svg = painter.MapLayerToSvg(map);
+            PrintSvg(svg, name);
+        }
+
+        private void PrintSvg(string svg, string name)
+        {
+            File.WriteAllText(name + "-" + myPlayer.Id + ".svg", svg);
         }
     }
 }
