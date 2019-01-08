@@ -33,6 +33,20 @@
             }
         }
 
+        public T this[int row, int column]
+        {
+            get
+            {
+                int index = PositionToArrayIndex(row, column);
+                return array[index];
+            }
+            set
+            {
+                int index = PositionToArrayIndex(row, column);
+                array[index] = value;
+            }
+        }
+
         public override T GetAt(Position position)
         {
             return this[position];

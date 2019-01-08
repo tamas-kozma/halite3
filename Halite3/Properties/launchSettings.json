@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MyBot": {
+      "commandName": "Project",
+      "commandLineArgs": "12 testModeInput=..\\..\\..\\..\\testInput.txt"
+    }
+  }
+}

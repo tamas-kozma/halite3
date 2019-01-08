@@ -134,5 +134,10 @@
         {
             return position.Row * Width + position.Column;
         }
+
+        protected int PositionToArrayIndex(int row, int column)
+        {
+            return row * Width + column;
+        }
     }
 }

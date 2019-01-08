@@ -1,6 +1,7 @@
 ﻿namespace Halite3.hlt
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
 
     public sealed class MyPlayer
@@ -20,6 +21,20 @@
         /// Ships sunk in the last turn.
         /// </summary>
         public List<MyShip> Shipwrecks { get; private set; } = new List<MyShip>();
+
+        public MyShip NewShip { get; set; }
+
+        public void BuildShip()
+        {
+            Debug.Assert(Halite >= GameConstants.ShipCost && NewShip == null);
+
+            NewShip = new MyShip()
+            {
+                Halite = 0,
+                Id = null,
+                Position = ShipyardPosition
+            };
+        }
 
         public void Initialize(GameInitializationMessage initializationMessage)
         {
@@ -55,6 +70,22 @@
                 }
             }
 
+            if (NewShip != null)
+            {
+                var newShipMessage = playerMessage.Ships.FirstOrDefault(shipMessage => shipMessage.Position == NewShip.Position);
+                if (newShipMessage == null)
+                {
+                    Shipwrecks.Add(NewShip);
+                }
+                else
+                {
+                    NewShip.Id = newShipMessage.ShipId;
+                    Ships.Add(NewShip);
+                }
+            }
+
+            NewShip = null;
+
             Shipwrecks.Clear();
             var shipMessagesById = playerMessage.Ships.ToDictionary(message => message.ShipId);
             for (int i = 0; i < Ships.Count; i++)
@@ -73,10 +104,12 @@
                     throw new BotFailedException();
                 }
 
+                ship.OriginPosition = ship.Position;
                 ship.Halite = shipMessage.Halite;
+                ship.HasActionAssigned = false;
             }
 
-            if (Ships.Count + Shipwrecks.Count != playerMessage.Ships.Length)
+            if (Ships.Count != playerMessage.Ships.Length)
             {
                 throw new BotFailedException();
             }

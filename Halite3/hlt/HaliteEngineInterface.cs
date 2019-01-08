@@ -15,6 +15,9 @@
         }
 
         public bool LogAllCommunication { get; set; }
+        public bool TestMode { get; set; }
+        public List<string> TestModeLines { get; set; }
+        public int TestModeNextLineIndex { get; set; }
 
         public GameInitializationMessage ReadGameInitializationMessage()
         {
@@ -152,7 +155,10 @@
                 logger.WriteMessage("< " + line);
             }
 
-            Console.WriteLine(line);
+            if (!TestMode)
+            {
+                Console.WriteLine(line);
+            }
         }
 
         private InputTokenString ReadTokenString()
@@ -163,24 +169,40 @@
 
         private string ReadLine()
         {
-            var builder = new StringBuilder();
-            int buffer;
-            for (; (buffer = Console.Read()) >= 0;)
+            string line;
+            if (TestMode)
             {
-                if (buffer == '\n')
+                if (TestModeNextLineIndex >= TestModeLines.Count)
                 {
-                    break;
+                    line = string.Empty;
                 }
-                if (buffer == '\r')
+                else
                 {
-                    // Ignore carriage return if on windows for manual testing.
-                    continue;
+                    line = TestModeLines[TestModeNextLineIndex++];
+                }
+            }
+            else
+            {
+                var builder = new StringBuilder();
+                int buffer;
+                for (; (buffer = Console.Read()) >= 0;)
+                {
+                    if (buffer == '\n')
+                    {
+                        break;
+                    }
+                    if (buffer == '\r')
+                    {
+                        // Ignore carriage return if on windows for manual testing.
+                        continue;
+                    }
+
+                    builder.Append((char)buffer);
                 }
 
-                builder.Append((char)buffer);
+                line = builder.ToString();
             }
 
-            string line = builder.ToString();
             if (LogAllCommunication)
             {
                 logger.WriteMessage("> " + line);
