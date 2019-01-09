@@ -57,13 +57,13 @@
 
                 var turnStartTime = DateTime.Now;
 
-                if (myPlayer.Halite >= GameConstants.ShipCost 
-                    && !myPlayer.Ships.Any(ship => ship.OriginPosition == myPlayer.ShipyardPosition))
-                {
-                    myPlayer.BuildShip();   
-                }
-
                 AssignOrdersToAllShips();
+
+                if (myPlayer.Halite >= GameConstants.ShipCost
+                    && !forbiddenCellsMap[myPlayer.ShipyardPosition])
+                {
+                    myPlayer.BuildShip();
+                }
 
                 var turnTime = DateTime.Now - turnStartTime;
                 logger.WriteMessage("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
@@ -140,6 +140,9 @@
 
                         if (otherShip.Role == ship.Role)
                         {
+                            // TODO: Bug here
+                            // Maybe an enemy that came close? That is in any case not handled.
+                            // replay-20190109-090506+0100-1547021092-64-64.hlt
                             Debug.Assert(forbiddenCellsMap[ship.OriginPosition] == false);
                             forbiddenCellsMap[ship.OriginPosition] = true;
                             AssignOrderToShip(otherShip);

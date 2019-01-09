@@ -62,6 +62,7 @@
 *** Find a magical function that somehow fixes this, or use multiple rings
 ** Screw all that
 *** I can just use the flooding local maxima approach instead and avoid all the above (but we'll see what other problems appear then)
-
+* Some more random
+** Maybe outbound ships should also travel on low halite routes to not waste halite?
 
 
