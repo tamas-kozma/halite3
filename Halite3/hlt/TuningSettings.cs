@@ -15,9 +15,10 @@
         public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.97d;
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
 
-        public int OutboundShipAllowedEarlyArrivalDistance { get; set; } = 3;
+        public double OutboundShipConversionMinimumHaliteRatio { get; set; } = 0.9d;
 
         public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.55d;
-        public int HarvesterMinimumFill { get; set; } = 950;
+        public int HarvesterMinimumFillDefault { get; set; } = 950;
+        public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
     }
 }
