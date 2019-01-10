@@ -59,14 +59,6 @@
 
                 AssignOrdersToAllShips();
 
-                for (int i = 0; i < 200; i++)
-                {
-                    ResetHaliteDependentState();
-                    GetOutboundMap();
-                }
-
-                PrintMaps();
-
                 if (myPlayer.Halite >= GameConstants.ShipCost
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
                 {
@@ -90,10 +82,10 @@
             {
                 Debug.Assert(!ship.HasActionAssigned);
 
-                int moveCost = (int)Math.Floor(haliteMap[ship.OriginPosition] * GameConstants.MoveCostRatio);
+                int moveCost = (int)Math.Floor(originHaliteMap[ship.OriginPosition] * GameConstants.MoveCostRatio);
                 if (ship.Halite < moveCost)
                 {
-                    ProcessShipOrder(ship, ship.OriginPosition, ship.OriginPosition);
+                    ProcessShipOrder(ship, ship.OriginPosition);
                 }
             }
 
@@ -110,73 +102,149 @@
 
         private void AssignOrderToShip(MyShip ship)
         {
-            var neighbourArray = new Position[4];
-
-            ASSIGN_ORDER_TO_SHIP_TOP:
-            if (ship.Role == ShipRole.Outbound)
+            while (true)
             {
-                var outboundMap = GetOutboundMap();
-                var paths = outboundMap.OutboundPaths;
-                var shipMap = myPlayer.ShipMap;
-
-                originHaliteMap.GetNeighbours(ship.OriginPosition, neighbourArray);
-                double maxPathValue = paths[ship.OriginPosition];
-                var maxPathValuePosition = ship.OriginPosition;
-                foreach (var candidatePosition in neighbourArray)
+                bool retryRequested = false;
+                switch (ship.Role)
                 {
-                    double pathValue = paths[candidatePosition];
-                    if (pathValue <= maxPathValue)
-                    {
-                        continue;
-                    }
+                    case ShipRole.Harvester:
+                        retryRequested = AssignOrderToHarvester(ship);
+                        break;
 
-                    if (forbiddenCellsMap[candidatePosition])
-                    {
-                        continue;
-                    }
-
-                    maxPathValue = pathValue;
-                    maxPathValuePosition = candidatePosition;
+                    case ShipRole.Outbound:
+                        retryRequested = AssignOrderToOutboundShip(ship);
+                        break;
                 }
 
-                if (maxPathValuePosition != ship.OriginPosition)
+                if (!retryRequested)
                 {
-                    var otherShip = shipMap[maxPathValuePosition];
-                    if (otherShip != null)
-                    {
-                        Debug.Assert(!otherShip.HasActionAssigned, "Otherwise it would not be there, or the cell would be forbidden.");
-
-                        if (otherShip.Role == ship.Role)
-                        {
-                            // TODO: Bug here
-                            // Maybe an enemy that came close? That is in any case not handled.
-                            // replay-20190109-090506+0100-1547021092-64-64.hlt
-                            Debug.Assert(forbiddenCellsMap[ship.OriginPosition] == false);
-                            forbiddenCellsMap[ship.OriginPosition] = true;
-                            AssignOrderToShip(otherShip);
-                            forbiddenCellsMap[ship.OriginPosition] = false;
-
-                            if (forbiddenCellsMap[maxPathValuePosition])
-                            {
-                                goto ASSIGN_ORDER_TO_SHIP_TOP;
-                            }
-                            else
-                            {
-                                Debug.Assert(shipMap[maxPathValuePosition] == null);
-                            }
-                        }
-                        else
-                        {
-                            ProcessShipOrder(otherShip, ship.OriginPosition, ship.OriginPosition);
-                        }
-                    }
+                    break;
                 }
-
-                ProcessShipOrder(ship, maxPathValuePosition, maxPathValuePosition);
             }
         }
 
-        private void ProcessShipOrder(MyShip ship, Position position, Position destination)
+        private bool AssignOrderToHarvester(MyShip ship)
+        {
+            ship.Destination = ship.OriginPosition;
+            ProcessShipOrder(ship, ship.OriginPosition);
+
+            return false;
+        }
+
+        private bool AssignOrderToOutboundShip(MyShip ship)
+        {
+            var outboundMap = GetOutboundMap();
+            var paths = outboundMap.OutboundPaths;
+            var shipMap = myPlayer.ShipMap;
+
+            var neighbourArray = mapBooster.GetNeighbours(ship.OriginPosition);
+            bool isOriginForbidden = forbiddenCellsMap[ship.OriginPosition];
+            double maxPathValue = (isOriginForbidden) ? 0 : paths[ship.OriginPosition];
+            var maxPathValuePosition = ship.OriginPosition;
+            double maxNeighbourPathValueIgnoringForbidden = 0;
+            var maxNeighbourPathValueIgnoringForbiddenPosition = default(Position);
+            foreach (var candidatePosition in neighbourArray)
+            {
+                double pathValue = paths[candidatePosition];
+                if (pathValue <= maxPathValue)
+                {
+                    continue;
+                }
+
+                if (forbiddenCellsMap[candidatePosition])
+                {
+                    maxNeighbourPathValueIgnoringForbidden = pathValue;
+                    maxNeighbourPathValueIgnoringForbiddenPosition = candidatePosition;
+                    continue;
+                }
+
+                maxPathValue = pathValue;
+                maxPathValuePosition = candidatePosition;
+            }
+
+            (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.OriginPosition, paths, false);
+            ship.Destination = optimalDestination;
+
+            if (maxPathValuePosition == ship.OriginPosition)
+            {
+                bool hasArrived = (optimalDestinationDistance <= tuningSettings.OutboundShipAllowedEarlyArrivalDistance);
+                if (hasArrived)
+                {
+                    ship.Role = ShipRole.Harvester;
+                    ship.Destination = ship.OriginPosition;
+                    return true;
+                }
+            }
+            else
+            {
+                var otherShip = shipMap[maxPathValuePosition];
+                if (otherShip != null)
+                {
+                    Debug.Assert(!otherShip.HasActionAssigned, "Otherwise it would not be there, or the cell would be forbidden.");
+
+                    if (otherShip.Role.IsHigherOrEqualPriorityThan(ship.Role))
+                    {
+                        bool wasForbidden = forbiddenCellsMap[ship.OriginPosition];
+                        forbiddenCellsMap[ship.OriginPosition] = true;
+                        AssignOrderToShip(otherShip);
+                        forbiddenCellsMap[ship.OriginPosition] = wasForbidden;
+
+                        if (forbiddenCellsMap[maxPathValuePosition])
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            Debug.Assert(shipMap[maxPathValuePosition] == null);
+                        }
+                    }
+                    else
+                    {
+                        // Switch places with lower priority ship.
+                        ProcessShipOrder(otherShip, ship.OriginPosition);
+                    }
+                }
+            }
+
+            ProcessShipOrder(ship, maxPathValuePosition);
+            return false;
+        }
+
+        private (Position, int) FollowPath(Position start, DataMapLayer<double> map, bool isMinSearch = true)
+        {
+            var position = start;
+            int multiplier = (isMinSearch) ? 1 : -1;
+            double value = map[start] * multiplier;
+            int distance = 0;
+            while (true)
+            {
+                var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
+                double bestNeighbourValue = double.MaxValue;
+                var bestNeighbour = default(Position);
+                foreach (var neighbour in neighbourArray)
+                {
+                    double neighbourValue = map[neighbour] * multiplier;
+                    if (neighbourValue < bestNeighbourValue)
+                    {
+                        bestNeighbour = neighbour;
+                        bestNeighbourValue = neighbourValue;
+                    }
+                }
+
+                if (bestNeighbourValue >= value)
+                {
+                    return (bestNeighbour, distance);
+                }
+                else
+                {
+                    distance++;
+                    position = bestNeighbour;
+                    value = bestNeighbourValue;
+                }
+            }
+        }
+
+        private void ProcessShipOrder(MyShip ship, Position position)
         {
             Debug.Assert(!ship.HasActionAssigned);
 
@@ -201,7 +269,12 @@
             }
             else
             {
-                AdjustHaliteUponExtraction(ship);
+                AdjustHaliteForExtraction(ship);
+            }
+
+            if (ship.Role == ShipRole.Outbound || ship.Role == ShipRole.Harvester)
+            {
+                AdjustHaliteForSimulatedHarvest(ship);
             }
         }
 
@@ -281,13 +354,68 @@
             }
         }
 
-        private void AdjustHaliteUponExtraction(MyShip ship)
+        private void AdjustHaliteForExtraction(MyShip ship)
         {
             int halite = haliteMap[ship.Position];
-            int extracted = Math.Min((int)Math.Ceiling(halite * GameConstants.ExtractRatio), GameConstants.ShipCapacity - ship.Halite);
+            int extracted = Math.Min(GetExtractedAmountIgnoringCapacity(halite), GameConstants.ShipCapacity - ship.Halite);
             halite -= extracted;
             haliteMap[ship.Position] = halite;
             ship.Halite += extracted;
+            ResetHaliteDependentState();
+        }
+
+        private int GetExtractedAmountIgnoringCapacity(int halite)
+        {
+            return (int)Math.Ceiling(halite * GameConstants.ExtractRatio);
+        }
+
+        private void AdjustHaliteForSimulatedHarvest(MyShip ship)
+        {
+            var position = ship.Destination;
+            int localHalite = haliteMap[position];
+            while (true)
+            {
+                var neighbourArray = mapBooster.GetNeighbours(position);
+                int maxHalite = 0;
+                var bestPosition = default(Position);
+                foreach (var neighbour in neighbourArray)
+                {
+                    int neighbourHalite = haliteMap[neighbour];
+                    if (neighbourHalite > maxHalite)
+                    {
+                        maxHalite = neighbourHalite;
+                        bestPosition = neighbour;
+                    }
+                }
+
+                if (maxHalite == 0)
+                {
+                    // Highly unlikely, staying.
+                }
+                else
+                {
+                    double ratio = localHalite / (double)maxHalite;
+                    if (ratio < tuningSettings.HarvesterMoveThresholdHaliteRatio)
+                    {
+                        position = bestPosition;
+                        localHalite = maxHalite;
+                    }
+                }
+
+                int availableCapacity = GameConstants.ShipCapacity - ship.Halite;
+                int extractableAmount = GetExtractedAmountIgnoringCapacity(localHalite);
+                if (extractableAmount == 0
+                    || (ship.Halite > tuningSettings.HarvesterMinimumFill 
+                        && extractableAmount > availableCapacity))
+                {
+                    break;
+                }
+
+                int extractedAmount = Math.Min(extractableAmount, availableCapacity);
+                localHalite -= extractedAmount;
+                haliteMap[position] = localHalite;
+            }
+
             ResetHaliteDependentState();
         }
 

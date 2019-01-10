@@ -41,6 +41,12 @@
             return outboundMapHarvestAreaSmoothingDiscs[index];
         }
 
+        public Position[] GetNeighbours(Position position)
+        {
+            int index = calculator.PositionToArrayIndex(position);
+            return neighbourhoods[index];
+        }
+
         public Position[] GetNeighbours(int row, int column)
         {
             int index = calculator.PositionToArrayIndex(row, column);
@@ -55,7 +61,7 @@
             CalculateOutboundMapHarvestAreaSmoothingDiscs();
         }
 
-        public void CalculateNeighbourhoods()
+        private void CalculateNeighbourhoods()
         {
             neighbourhoods = new Position[calculator.CellCount][];
             foreach (var position in calculator.AllPositions)
