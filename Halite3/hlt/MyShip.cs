@@ -10,5 +10,6 @@
         public bool HasActionAssigned { get; set; }
         public Position Destination { get; set; }
         public int BlockedTurnCount { get; set; }
+        public bool IsHoldingTheDoor { get; set; }
     }
 }
