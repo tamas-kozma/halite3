@@ -5,23 +5,13 @@
 
     public struct Position : IEquatable<Position>
     {
-        private readonly int row;
-        private readonly int column;
+        public readonly int Row;
+        public readonly int Column;
 
         public Position(int row, int column)
         {
-            this.row = row;
-            this.column = column;
-        }
-
-        public int Row
-        {
-            get { return row; }
-        }
-
-        public int Column
-        {
-            get { return column; }
+            Row = row;
+            Column = column;
         }
 
         public static IEnumerable<Position> GetRectangleCells(int row1, int column1, int row2, int column2)
@@ -57,12 +47,12 @@
 
         public bool Equals(Position other)
         {
-            return (row == other.row && column == other.column);
+            return (Row == other.Row && Column == other.Column);
         }
 
         public override int GetHashCode()
         {
-            return (row * 37 + column);
+            return (Row * 37 + Column);
         }
 
         public override string ToString()

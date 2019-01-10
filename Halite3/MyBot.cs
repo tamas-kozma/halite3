@@ -31,7 +31,7 @@
         private OutboundMap dangerousOutboundMap;
         private ShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
-        
+        private MapBooster mapBooster;
 
         public MyBot(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -58,6 +58,14 @@
                 var turnStartTime = DateTime.Now;
 
                 AssignOrdersToAllShips();
+
+                for (int i = 0; i < 200; i++)
+                {
+                    ResetHaliteDependentState();
+                    GetOutboundMap();
+                }
+
+                PrintMaps();
 
                 if (myPlayer.Halite >= GameConstants.ShipCost
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
@@ -209,6 +217,8 @@
             mapWidth = originHaliteMap.Width;
             mapHeight = originHaliteMap.Height;
 
+            mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
+
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             MarkOpponentShipyardsAsForbidden();
 
@@ -313,6 +323,8 @@
                 string testModeLinesFile = testModeArgument.Split('=')[1];
                 var lines = File.ReadAllLines(testModeLinesFile);
                 engineInterface.TestModeLines = lines.ToList();
+
+                Directory.SetCurrentDirectory(Path.GetDirectoryName(testModeLinesFile));
             }
 
             var tuningSettings = new TuningSettings();
@@ -344,7 +356,8 @@
                     HaliteMap = originHaliteMap,
                     TuningSettings = tuningSettings,
                     Logger = logger,
-                    MyPlayer = myPlayer
+                    MyPlayer = myPlayer,
+                    MapBooster = mapBooster
                 };
 
                 dangerousReturnMap.Calculate();
@@ -364,7 +377,8 @@
                     GameInitializationMessage = gameInitializationMessage,
                     TurnMessage = turnMessage,
                     ReturnMap = GetReturnMap(),
-                    Logger = logger
+                    Logger = logger,
+                    MapBooster = mapBooster
                 };
 
                 dangerousAdjustedHaliteMap.Calculate();
@@ -382,7 +396,8 @@
                     TuningSettings = tuningSettings,
                     AdjustedHaliteMap = GetAdjustedHaliteMap(),
                     MyPlayer = myPlayer,
-                    Logger = logger
+                    Logger = logger,
+                    MapBooster = mapBooster
                 };
 
                 dangerousOutboundMap.Calculate();

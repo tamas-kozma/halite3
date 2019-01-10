@@ -7,14 +7,20 @@
 
     public abstract class MapLayer<T> : IEnumerable<T>
     {
+        private readonly int halfWidth;
+        private readonly int halfHeight;
+
+        public readonly int Width;
+        public readonly int Height;
+
         protected MapLayer(int width, int height)
         {
             Width = width;
             Height = height;
-        }
 
-        public int Width { get; private set; }
-        public int Height { get; private set; }
+            halfWidth = Width / 2;
+            halfHeight = Height / 2;
+        }
 
         public int CellCount
         {
@@ -40,13 +46,13 @@
         public int WraparoundDistance(Position position1, Position position2)
         {
             int rowDistance = Math.Abs(position2.Row - position1.Row);
-            if (rowDistance > Height / 2)
+            if (rowDistance > halfHeight)
             {
                 rowDistance = Height - rowDistance;
             }
 
             int columnDistance = Math.Abs(position2.Column - position1.Column);
-            if (columnDistance > Width / 2)
+            if (columnDistance > halfWidth)
             {
                 columnDistance = Width - columnDistance;
             }
@@ -125,19 +131,19 @@
             return (row + Height) % Height;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        protected int PositionToArrayIndex(Position position)
+        public int PositionToArrayIndex(Position position)
         {
             return position.Row * Width + position.Column;
         }
 
-        protected int PositionToArrayIndex(int row, int column)
+        public int PositionToArrayIndex(int row, int column)
         {
             return row * Width + column;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

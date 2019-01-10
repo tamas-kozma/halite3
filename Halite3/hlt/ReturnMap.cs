@@ -11,35 +11,41 @@
         public DataMapLayer<int> HaliteMap { get; set; }
         public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
+        public MapBooster MapBooster { get; set; }
 
         public DataMapLayer<double> PathCosts { get; private set; }
         public DataMapLayer<ReturnMapCellData> CellData { get; private set; }
 
+        private DataMapLayer<int> distanceFromDropoffMap;
+
         public void Calculate()
         {
             dropoffPositions = MyPlayer.DropoffPositions.ToArray();
+            distanceFromDropoffMap = MyPlayer.DistanceFromDropoffMap;
 
-            PathCosts = new DataMapLayer<double>(HaliteMap.Width, HaliteMap.Height);
-            PathCosts.Fill(double.MaxValue);
-            CellData = new DataMapLayer<ReturnMapCellData>(HaliteMap.Width, HaliteMap.Height);
+            var pathCosts = new DataMapLayer<double>(HaliteMap.Width, HaliteMap.Height);
+            PathCosts = pathCosts;
+            pathCosts.Fill(double.MaxValue);
+            var cellDataMap = new DataMapLayer<ReturnMapCellData>(HaliteMap.Width, HaliteMap.Height);
+            CellData = cellDataMap;
 
-            var queue = new PriorityQueue<double, Position>();
+            var queue = new DoublePriorityQueue<Position>();
             foreach (var position in dropoffPositions)
             {
-                PathCosts[position] = 0d;
-                CellData[position] = new ReturnMapCellData(0, 0);
+                pathCosts[position] = 0d;
+                cellDataMap[position] = new ReturnMapCellData(0, 0);
                 queue.Enqueue(0d, position);
             }
 
-            var neighbours = new Position[4];
+            var mapBooster = MapBooster;
             while (queue.Count > 0)
             {
                 var position = queue.Dequeue();
-                var cellData = CellData[position];
-                HaliteMap.GetNeighbours(position, neighbours);
+                var cellData = cellDataMap[position];
+                var neighbours = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbours)
                 {
-                    double oldNeighbourCost = PathCosts[neighbour];
+                    double oldNeighbourCost = pathCosts[neighbour];
                     int neighbourHalite = HaliteMap[neighbour];
                     var newNeighbourCellData = new ReturnMapCellData(cellData.Distance + 1, cellData.SumHalite + neighbourHalite);
                     double newNeighbourCost = GetPathCost(neighbour, newNeighbourCellData);
@@ -48,8 +54,8 @@
                         continue;
                     }
 
-                    CellData[neighbour] = newNeighbourCellData;
-                    PathCosts[neighbour] = newNeighbourCost;
+                    cellDataMap[neighbour] = newNeighbourCellData;
+                    pathCosts[neighbour] = newNeighbourCost;
                     queue.Enqueue(newNeighbourCost, neighbour);
                 }
             }
@@ -57,18 +63,11 @@
 
         private double GetPathCost(Position pathStartPosition, ReturnMapCellData data)
         {
-            int directDistance = GetDirectDistanceFromDropoff(pathStartPosition);
+            int directDistance = distanceFromDropoffMap[pathStartPosition];
             Debug.Assert(data.Distance >= directDistance);
             double distanceRatio = data.Distance / (double)directDistance;
             double multiplier = ((distanceRatio - 1) * TuningSettings.ReturnPathDistancePenaltyMultiplier) + 1;
             return data.SumHalite * multiplier;
-        }
-
-        private int GetDirectDistanceFromDropoff(Position position)
-        {
-            return dropoffPositions
-                .Select(dropoffPosition => HaliteMap.WraparoundDistance(position, dropoffPosition))
-                .Min();
         }
     }
 }

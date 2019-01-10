@@ -5,12 +5,15 @@
 
     public sealed class InputTokenString
     {
+        private static readonly char[] separatorArray = new char[] { ' ' };
+
         private readonly string[] tokens;
         private int index;
 
         public InputTokenString(string text)
         {
-            tokens = text.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+            //tokens = text.Split(separatorArray, StringSplitOptions.RemoveEmptyEntries);
+            tokens = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             index = -1;
         }
 

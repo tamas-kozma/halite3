@@ -10,6 +10,7 @@
         public AdjustedHaliteMap AdjustedHaliteMap { get; set; }
         public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
+        public MapBooster MapBooster { get; set; }
 
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
         public DataMapLayer<double> HarvestAreaMap { get; private set; }
@@ -25,32 +26,42 @@
         {
             int mapWidth = HarvestAreaMap.Width;
             int mapHeight = HarvestAreaMap.Height;
-            OutboundPaths = new DataMapLayer<double>(mapWidth, mapHeight);
+            var outboundPaths = new DataMapLayer<double>(mapWidth, mapHeight);
+            OutboundPaths = outboundPaths;
 
             int estimatedMaxQueueSize = (int)(HarvestAreaMap.CellCount * Math.Log(HarvestAreaMap.CellCount));
-            var queue = new PriorityQueue<double, Position>(estimatedMaxQueueSize, DoubleInverseComparer.Default);
+            var queue = new DoublePriorityQueue<Position>(estimatedMaxQueueSize);
             foreach (var position in HarvestAreaMap.AllPositions)
             {
                 double value = HarvestAreaMap[position];
                 if (value > 1d)
                 {
-                    queue.Enqueue(value, position);
+                    queue.Enqueue(-1 * value, position);
                 }
             }
 
-            var neighbourArray = new Position[4];
+            var mapBooster = MapBooster;
+            int cellCount = outboundPaths.CellCount;
+            int cellsAssigned = 0;
             double stepPenaltyMultiplier = TuningSettings.OutboundMapPathStepPenaltyMultiplier;
             while (queue.Count > 0)
             {
-                double newValue = queue.PeekPriority();
+                double newValue = -1 * queue.PeekPriority();
                 var position = queue.Dequeue();
-                double oldValue = OutboundPaths[position];
+                double oldValue = outboundPaths[position];
                 if (newValue <= oldValue)
                 {
                     continue;
                 }
 
-                OutboundPaths[position] = newValue;
+                outboundPaths[position] = newValue;
+                cellsAssigned++;
+
+                // With uniform edge costs, all cells are visited exactly once.
+                if (cellsAssigned == cellCount)
+                {
+                    break;
+                }
 
                 double nextValue = newValue * stepPenaltyMultiplier;
                 if (nextValue < 1d)
@@ -58,44 +69,55 @@
                     continue;
                 }
 
-                OutboundPaths.GetNeighbours(position, neighbourArray);
+                var nextPriority = -1 * nextValue;
+                var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbourArray)
                 {
-                    queue.Enqueue(nextValue, neighbour);
+                    double neighbourValue = outboundPaths[neighbour];
+                    if (nextValue <= neighbourValue)
+                    {
+                        continue;
+                    }
+
+                    queue.Enqueue(nextPriority, neighbour);
                 }
             }
         }
 
         private void CalculateHarvestAreaMap()
         {
+            var mapBooster = MapBooster;
             var adjustedHaliteValues = AdjustedHaliteMap.Values;
             int mapWidth = adjustedHaliteValues.Width;
             int mapHeight = adjustedHaliteValues.Height;
-            DiscAverageLayer = new DataMapLayer<double>(mapWidth, mapHeight);
-
-            int windowRadius = 2;
-            Debug.Assert(adjustedHaliteValues.Width > windowRadius * 2 + 1 && adjustedHaliteValues.Height > windowRadius * 2 + 1);
-
-            int discArea = adjustedHaliteValues.GetDiscArea(windowRadius);
-            var discPositions = new Position[discArea];
+            var discAverageLayer = new DataMapLayer<double>(mapWidth, mapHeight);
+            DiscAverageLayer = discAverageLayer;
+            int discArea = adjustedHaliteValues.GetDiscArea(TuningSettings.OutboundMapHarvestAreaSmoothingRadius);
             for (int row = 0; row < mapHeight; row++)
             {
                 for (int column = 0; column < mapWidth; column++)
                 {
-                    var position = new Position(row, column);
-                    adjustedHaliteValues.GetDiscCells(position, windowRadius, discPositions);
-                    double discSum = discPositions.Sum(discPosition => adjustedHaliteValues[discPosition]);
-                    DiscAverageLayer[position] = discSum / discArea;
+                    var discPositions = mapBooster.GetOutboundMapHarvestAreaSmoothingDisc(row, column);
+
+                    double discSum = 0;
+                    foreach (var discPosition in discPositions)
+                    {
+                        discSum += adjustedHaliteValues[discPosition];
+                    }
+
+                    discAverageLayer[row, column] = discSum / discArea;
                 }
             }
 
             double centerWeight = TuningSettings.OutboundMapHarvestAreaCenterWeight;
-            HarvestAreaMap = new DataMapLayer<double>(mapWidth, mapHeight);
+            double centerWeightPlusOne = centerWeight + 1;
+            var harvestAreaMap = new DataMapLayer<double>(mapWidth, mapHeight);
+            HarvestAreaMap = harvestAreaMap;
             foreach (var position in HarvestAreaMap.AllPositions)
             {
                 double valueAtCell = adjustedHaliteValues[position];
                 double averageAtCell = DiscAverageLayer[position];
-                HarvestAreaMap[position] = (valueAtCell * centerWeight + averageAtCell) / (centerWeight + 1);
+                harvestAreaMap[position] = (valueAtCell * centerWeight + averageAtCell) / centerWeightPlusOne;
             }
 
             foreach (var position in MyPlayer.DropoffPositions)

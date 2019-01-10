@@ -12,6 +12,7 @@
         public TurnMessage TurnMessage { get; set; }
         public ReturnMap ReturnMap { get; set; }
         public Logger Logger { get; set; }
+        public MapBooster MapBooster { get; set; }
 
         public DataMapLayer<double> Values { get; private set; }
 

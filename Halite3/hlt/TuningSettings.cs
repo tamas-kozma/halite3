@@ -13,5 +13,6 @@
         public double OutboundMapOpponentDropoffPenaltyMultiplier { get; set; } = 0.5d;
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
         public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.97d;
+        public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
     }
 }

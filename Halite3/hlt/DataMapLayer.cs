@@ -23,12 +23,12 @@
         {
             get
             {
-                int index = PositionToArrayIndex(position);
+                int index = position.Row * Width + position.Column;
                 return array[index];
             }
             set
             {
-                int index = PositionToArrayIndex(position);
+                int index = position.Row * Width + position.Column;
                 array[index] = value;
             }
         }
@@ -65,6 +65,10 @@
         public override void Fill(T value)
         {
             Array.Fill(array, value);
+            /*for (int i = 0; i < array.Length; i++)
+            {
+                array[i] = value;
+            }*/
         }
 
         public override IEnumerator<T> GetEnumerator()

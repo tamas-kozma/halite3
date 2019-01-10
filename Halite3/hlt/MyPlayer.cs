@@ -1,5 +1,6 @@
 ﻿namespace Halite3.hlt
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
@@ -25,6 +26,8 @@
         public MyShip NewShip { get; private set; }
         public DataMapLayer<MyShip> ShipMap { get; private set; }
 
+        public DataMapLayer<int> DistanceFromDropoffMap { get; private set; }
+
         public void BuildShip()
         {
             Debug.Assert(Halite >= GameConstants.ShipCost && NewShip == null);
@@ -38,6 +41,12 @@
             };
         }
 
+        public void BuildDropoff(MyShip builder)
+        {
+            UpdateDropoffDistances();
+            throw new NotImplementedException();
+        }
+
         public void Initialize(GameInitializationMessage initializationMessage)
         {
             Id = initializationMessage.MyPlayerId;
@@ -46,7 +55,13 @@
             ShipyardPosition = myPlayerMessage.ShipyardPosition;
             Halite = 5000;
             DropoffPositions.Add(ShipyardPosition);
-            ShipMap = new DataMapLayer<MyShip>(initializationMessage.MapWithHaliteAmounts.Width, initializationMessage.MapWithHaliteAmounts.Height);
+
+            int mapWidth = initializationMessage.MapWithHaliteAmounts.Width;
+            int mapHeight = initializationMessage.MapWithHaliteAmounts.Height;
+            ShipMap = new DataMapLayer<MyShip>(mapWidth, mapHeight);
+
+            DistanceFromDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
+            UpdateDropoffDistances();
         }
 
         public void Update(TurnMessage turnMessage)
@@ -117,6 +132,24 @@
             if (Ships.Count != playerMessage.Ships.Length)
             {
                 throw new BotFailedException();
+            }
+        }
+
+        private void UpdateDropoffDistances()
+        {
+            foreach (var position in DistanceFromDropoffMap.AllPositions)
+            {
+                int minDistance = int.MaxValue;
+                foreach (var dropoffPosition in DropoffPositions)
+                {
+                    int distance = DistanceFromDropoffMap.WraparoundDistance(position, dropoffPosition);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                    }
+                }
+
+                DistanceFromDropoffMap[position] = minDistance;
             }
         }
     }
