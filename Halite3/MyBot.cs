@@ -300,7 +300,7 @@
             return !orderAssigned;
         }
 
-        private bool TryProcessShipOrderHandlingShipInTheWay(MyShip ship, Position targetPosition)
+        private bool TryProcessShipOrderHandlingShipInTheWay(MyShip ship, Position targetPosition, bool isBlocked = false)
         {
             Debug.Assert(!ship.HasActionAssigned);
             if (targetPosition != ship.OriginPosition)
@@ -316,12 +316,14 @@
                     {
                         // Switching places, either because this ship has higher priority, or because asking the other ship
                         // to move would potentially lead to infinite recursion.
+                        logger.WriteMessage("Ship " + ship.Id + " goes from " + ship.OriginPosition + " to " + targetPosition + " and switches place with ship " + otherShip.Id + ".");
                         ProcessShipOrder(otherShip, ship.OriginPosition);
                     }
                     else
                     {
                         Debug.Assert(!ship.IsHoldingTheDoor);
                         ship.IsHoldingTheDoor = true;
+                        logger.WriteMessage("Ship " + ship.Id + " wants to go from " + ship.OriginPosition + " to " + targetPosition + ", but first holds the door for ship " + otherShip.Id + ".");
                         AssignOrderToShip(otherShip);
                         ship.IsHoldingTheDoor = false;
                         return ship.HasActionAssigned;
@@ -329,7 +331,7 @@
                 }
             }
 
-            ProcessShipOrder(ship, targetPosition);
+            ProcessShipOrder(ship, targetPosition, isBlocked);
             return true;
         }
 
@@ -348,7 +350,11 @@
                 }
             }
 
-            ProcessShipOrder(ship, targetPosition, true);
+            bool orderAssigned = TryProcessShipOrderHandlingShipInTheWay(ship, targetPosition, true);
+            if (!orderAssigned)
+            {
+                ProcessShipOrder(ship, ship.OriginPosition, true);
+            }
         }
 
         private NeighbourhoodInfo DiscoverNeighbourhood(Position originPosition, DataMapLayer<double> map, Func<Position, double, Position, double, bool> isBetter)
@@ -449,7 +455,7 @@
                 else
                 {
                     // Can only happen when switching places.
-                    Debug.Assert(shipAtOrigin.HasActionAssigned && shipAtOrigin.OriginPosition == position);
+                    Debug.Assert(shipAtOrigin.HasActionAssigned && shipAtOrigin.OriginPosition == position, "ship=" + ship + ", shipAtOrigin=" + shipAtOrigin);
                 }
 
                 myPlayer.ShipMap[ship.Position] = ship;
@@ -457,11 +463,6 @@
             else
             {
                 AdjustHaliteForExtraction(ship);
-            }
-
-            if (ship.Role == ShipRole.Outbound || ship.Role == ShipRole.Harvester)
-            {
-                AdjustHaliteForSimulatedHarvest(ship);
             }
         }
 
@@ -524,6 +525,15 @@
                 }
             }
 
+            /*foreach (var position in myPlayer.ShipMap.AllPositions)
+            {
+                var ship = myPlayer.ShipMap[position];
+                if (ship != null)
+                {
+                    logger.WriteMessage("At " + position + " found registered " + ship + ".");
+                }
+            }*/
+
             return true;
         }
 
@@ -547,7 +557,13 @@
             halite -= extracted;
             haliteMap[ship.Position] = halite;
             ship.Halite += extracted;
-            ResetHaliteDependentState();
+
+            if (ship.Role == ShipRole.Harvester)
+            {
+                // Optimization. Non-harvesters will only stop for refueling, on cells that likely don't have much halite.
+                // Those small changes should be fine to ignore.
+                ResetHaliteDependentState();
+            }
         }
 
         private int GetExtractedAmountIgnoringCapacity(int halite)
@@ -610,8 +626,6 @@
                 haliteMap[position] = localHalite;
                 haliteInShip += extractedAmount;
             }
-
-            ResetHaliteDependentState();
         }
 
         public static void Main(string[] args)
@@ -665,6 +679,7 @@
 
         private void ResetHaliteDependentState()
         {
+            //logger.WriteMessage("Resetting halite dependent state.");
             dangerousReturnMap = null;
             dangerousAdjustedHaliteMap = null;
             dangerousOutboundMap = null;
@@ -739,10 +754,23 @@
             haliteMap = new DataMapLayer<int>(originHaliteMap);
 
             ResetHaliteDependentState();
-
             originReturnMap = GetReturnMap();
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
+
+            // Updating the halite map based on assigned destinations from the previous turn. Initially I wanted to do this
+            // right after a ship has moved, but that messed up all planning because ship turn order is not reliable and therefore
+            // halite amounts seemingly changed a lot from turn to turn.
+            var harvestSimulationSubjectsOrdered = myPlayer.Ships
+                .Where(ship => ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
+                .OrderBy(ship => haliteMap.WraparoundDistance(ship.OriginPosition, ship.Destination));
+
+            foreach (var ship in harvestSimulationSubjectsOrdered)
+            {
+                AdjustHaliteForSimulatedHarvest(ship);
+            }
+
+            ResetHaliteDependentState();
         }
 
         private void PrintMaps()

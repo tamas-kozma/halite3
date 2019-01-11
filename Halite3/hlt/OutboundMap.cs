@@ -18,6 +18,7 @@
 
         public void Calculate()
         {
+            //Logger.WriteMessage("Calculating outbound map.");
             CalculateHarvestAreaMap();
             CalculateOutboundPaths();
         }

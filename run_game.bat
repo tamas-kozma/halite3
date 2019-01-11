@@ -1,2 +1,4 @@
+REM --seed 1547232449
+REM --seed 1547235188
 dotnet build
-halite.exe --turn-limit 50 --replay-directory replays/ -vvv --width 64 --height 64 "dotnet %cd%\Halite3\bin\Debug\netcoreapp2.0\MyBot.dll" "dotnet %cd%\Halite3\bin\Debug\netcoreapp2.0\MyBot.dll"
+halite.exe --seed 1547235188 --turn-limit 50 --replay-directory replays/ -vvv --width 64 --height 64 "dotnet %cd%\Halite3\bin\Debug\netcoreapp2.0\MyBot.dll" "dotnet %cd%\Halite3\bin\Debug\netcoreapp2.0\MyBot.dll"
