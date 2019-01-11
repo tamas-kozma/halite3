@@ -1,4 +1,6 @@
-﻿namespace Halite3.hlt
+﻿using System.Collections.Generic;
+
+namespace Halite3.hlt
 {
     public sealed class MyShip
     {
@@ -8,9 +10,12 @@
         public int Halite { get; set; }
         public ShipRole Role { get; set; }
         public bool HasActionAssigned { get; set; }
-        public Position Destination { get; set; }
+        public Position? Destination { get; set; }
         public int BlockedTurnCount { get; set; }
         public bool IsHoldingTheDoor { get; set; }
+        public DataMapLayer<double> Map { get; set; }
+        public int MapDirection { get; set; } // 1 = climbing, -1 = descending
+        public List<Position> PushPath { get; set; } // Only valid right after it is calculated, from the point of view of the VIP.
 
         public override string ToString()
         {

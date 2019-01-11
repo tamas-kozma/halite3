@@ -274,7 +274,10 @@
 
         public IEnumerator<TValue> GetEnumerator()
         {
-            return new PriorityQueueEnumerator(this);
+            foreach (var node in list)
+            {
+                yield return node.Value;
+            }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -430,41 +433,6 @@
             {
                 Priority = newPriority;
                 Value = newValue;
-            }
-        }
-
-        private class PriorityQueueEnumerator : IEnumerator<TValue>
-        {
-            private IEnumerator<Node> nodeEnumerator;
-
-            public PriorityQueueEnumerator(PriorityQueue<TPriority, TValue> queue) 
-            { 
-                nodeEnumerator = queue.list.GetEnumerator(); 
-            }
-
-            public TValue Current 
-            { 
-                get { return nodeEnumerator.Current.Value; } 
-            }
-            
-            object IEnumerator.Current 
-            { 
-                get { return (nodeEnumerator as IEnumerator).Current; } 
-            }
-
-            public void Dispose() 
-            { 
-                nodeEnumerator.Dispose(); 
-            }
-
-            public bool MoveNext() 
-            { 
-                return nodeEnumerator.MoveNext(); 
-            }
-
-            public void Reset() 
-            { 
-                nodeEnumerator.Reset(); 
             }
         }
     }

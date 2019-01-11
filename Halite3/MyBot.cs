@@ -18,6 +18,7 @@
         private readonly TuningSettings tuningSettings;
 
         private readonly MapLayerPainter painter;
+        private readonly PriorityQueue<MyShip, MyShip> shipQueue;
 
         private int mapWidth;
         private int mapHeight;
@@ -32,8 +33,9 @@
         private ReturnMap originReturnMap;
         private AdjustedHaliteMap originAdjustedHaliteMap;
         private OutboundMap originOutboundMap;
-        private ShipTurnOrderComparer shipTurnOrderComparer;
+        private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
+        private BitMapLayer stubbornShipForbiddenCellsMap;
         private MapBooster mapBooster;
 
         public MyBot(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
@@ -45,6 +47,8 @@
 
             painter = new MapLayerPainter();
             painter.CellPixelSize = 8;
+
+            shipQueue = new PriorityQueue<MyShip, MyShip>(100, shipTurnOrderComparer);
         }
 
         public void Play()
@@ -101,9 +105,8 @@
 
         private void AssignOrdersToAllShips()
         {
-            var shipsOrdered = new List<MyShip>(myPlayer.Ships);
-            shipsOrdered.Sort(shipTurnOrderComparer);
-            foreach (var ship in shipsOrdered)
+            shipQueue.Clear();
+            foreach (var ship in myPlayer.Ships)
             {
                 Debug.Assert(!ship.HasActionAssigned);
 
@@ -113,6 +116,12 @@
                     logger.WriteMessage("Ship " + ship.Id + " at " + ship.OriginPosition + " has not enough halite to move (" + ship.Halite + " vs " + moveCost + ").");
                     ProcessShipOrder(ship, ship.OriginPosition);
                 }
+
+                shipQueue.Enqueue(ship, ship);
+            }
+
+            while (shipQueue.Count > 0)
+            {
             }
 
             foreach (var ship in shipsOrdered)
@@ -124,6 +133,84 @@
 
                 AssignOrderToShip(ship);
             }
+        }
+
+        private void UpdateStubbornShipMap()
+        {
+            stubbornShipForbiddenCellsMap.Clear();
+            foreach (var ship in myPlayer.Ships)
+            {
+                if (ship.HasActionAssigned)
+                {
+                    continue;
+                }
+
+                if (IsStubborn(ship))
+                {
+                    stubbornShipForbiddenCellsMap[ship.OriginPosition] = true;
+                }
+            }
+        }
+
+        private bool IsStubborn(MyShip ship)
+        {
+            Debug.Assert(!ship.HasActionAssigned);
+            if (!ship.Destination.HasValue
+                || ship.Destination == ship.OriginPosition)
+            {
+                return true;
+            }
+
+
+
+            return false;
+        }
+
+        // TODO: From here...
+        // IsForbidden doesn't have to return a bool, it can give back the push... information, and then I don't have to have it on ships
+        // Moving everywhere could be simplified and unified. If I have reliable IsForbidden information, like I do now...
+        // Dunno I'm tired.
+        private bool GetPushPath(MyShip vip, MyShip blocker)
+        {
+            var pushPath = new List<Position>() { vip.OriginPosition };
+            bool canPush = GetPushPathRecursive(blocker, vip, pushPath);
+            if (canPush)
+            {
+                blocker.PushPath = pushPath;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool GetPushPathRecursive(MyShip pusher, MyShip blocker, List<Position> pushPath)
+        {
+            Debug.Assert(!pusher.HasActionAssigned 
+                && !blocker.HasActionAssigned 
+                && originHaliteMap.WraparoundDistance(pusher.OriginPosition, blocker.OriginPosition) == 1);
+
+            if (!blocker.Destination.HasValue
+                || blocker.Destination == blocker.OriginPosition
+                || blocker.Map == null)
+            {
+                return false;
+            }
+
+            var candidateEscapePositions = mapBooster
+                .GetNeighbours(blocker.OriginPosition)
+                .Where(position => !IsForbidden(blocker, position, true))
+                .OrderByDescending(position => blocker.MapDirection * blocker.Map[position]);
+
+            foreach (var position in candidateEscapePositions)
+            {
+                var blockerBlocker = myPlayer.ShipMap[position];
+                if (blockerBlocker != null)
+                {
+                    if (CanGiveWay()
+                }
+            }
+
+            return false;
         }
 
         private void AssignOrderToShip(MyShip ship)
@@ -480,7 +567,8 @@
             mapHeight = originHaliteMap.Height;
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
-            shipTurnOrderComparer = new ShipTurnOrderComparer(originHaliteMap);
+            stubbornShipForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
+            shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
 
             haliteEngineInterface.Ready(Name);
         }
@@ -498,6 +586,7 @@
             UpdateHaliteMap(turnMessage);
 
             forbiddenCellsMap.Clear();
+            
             // TODO: Mark also dropoffs?
             // TODO: Don't mark ships close to us.
             MarkOpponentShipyardsAsForbidden();
@@ -535,6 +624,12 @@
             }*/
 
             return true;
+        }
+
+        private bool IsForbidden(MyShip ship, Position position, bool ignoreBlocker = false)
+        {
+            throw new NotImplementedException();
+            return forbiddenCellsMap[position] || stubbornShipForbiddenCellsMap[position];
         }
 
         private void MarkOpponentShipyardsAsForbidden()
