@@ -2,6 +2,7 @@
 {
     using System.Collections.Generic;
 
+    // Ships that should come last (lowest priority) compare as greatest.
     public sealed class ShipTurnOrderComparer : IComparer<MyShip>
     {
         private readonly MapLayer<int> dummyMap;
@@ -13,15 +14,18 @@
 
         public int Compare(MyShip x, MyShip y)
         {
-            int aspectComparisonResult = (int)x.Role - (int)y.Role;
-            if (aspectComparisonResult != 0)
+            if (x.Role.IsHigherPriorityThan(y.Role))
             {
-                return aspectComparisonResult;
+                return -1;
+            }
+            if (y.Role.IsHigherPriorityThan(x.Role))
+            {
+                return 1;
             }
 
             int xDistance = dummyMap.WraparoundDistance(x.Destination, x.OriginPosition);
             int yDistance = dummyMap.WraparoundDistance(y.Destination, y.OriginPosition);
-            aspectComparisonResult = xDistance - yDistance;
+            int aspectComparisonResult = xDistance - yDistance;
             if (aspectComparisonResult != 0)
             {
                 return aspectComparisonResult;

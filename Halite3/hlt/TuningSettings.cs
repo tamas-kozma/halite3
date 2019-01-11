@@ -12,13 +12,14 @@
         public int OutboundMapOpponentDropoffPenaltyRadius { get; set; } = 10;
         public double OutboundMapOpponentDropoffPenaltyMultiplier { get; set; } = 0.5d;
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
-        public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.97d;
+        public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.96d;
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
 
-        public double OutboundShipConversionMinimumHaliteRatio { get; set; } = 0.9d;
+        public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.9d;
 
         public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.55d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
+        public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.4d;
     }
 }

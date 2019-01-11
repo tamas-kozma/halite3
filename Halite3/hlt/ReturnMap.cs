@@ -64,6 +64,11 @@
         private double GetPathCost(Position pathStartPosition, ReturnMapCellData data)
         {
             int directDistance = distanceFromDropoffMap[pathStartPosition];
+            if (directDistance == 0)
+            {
+                return double.MaxValue;
+            }
+
             Debug.Assert(data.Distance >= directDistance);
             double distanceRatio = data.Distance / (double)directDistance;
             double multiplier = ((distanceRatio - 1) * TuningSettings.ReturnPathDistancePenaltyMultiplier) + 1;
