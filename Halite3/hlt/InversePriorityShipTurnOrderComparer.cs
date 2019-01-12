@@ -1,6 +1,7 @@
 ﻿namespace Halite3.hlt
 {
     using System.Collections.Generic;
+    using System.Diagnostics;
 
     // Ships that should come last (lowest priority) compare as greatest.
     public sealed class InversePriorityShipTurnOrderComparer : IComparer<MyShip>
@@ -23,12 +24,25 @@
                 return 1;
             }
 
-            int xDistance = dummyMap.WraparoundDistance(x.Destination, x.OriginPosition);
-            int yDistance = dummyMap.WraparoundDistance(y.Destination, y.OriginPosition);
-            int aspectComparisonResult = xDistance - yDistance;
-            if (aspectComparisonResult != 0)
+            int aspectComparisonResult;
+            if (x.Destination.HasValue || y.Destination.HasValue)
             {
-                return aspectComparisonResult;
+                if (!x.Destination.HasValue)
+                {
+                    return 1;
+                }
+                else if (!y.Destination.HasValue)
+                {
+                    return -1;
+                }
+                else
+                {
+                    aspectComparisonResult = x.DistanceFromDestination - y.DistanceFromDestination;
+                    if (aspectComparisonResult != 0)
+                    {
+                        return aspectComparisonResult;
+                    }
+                }
             }
 
             aspectComparisonResult = y.Halite - x.Halite;

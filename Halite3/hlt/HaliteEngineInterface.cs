@@ -152,7 +152,7 @@
         {
             if (LogAllCommunication)
             {
-                logger.WriteMessage("< " + line);
+                logger.LogDebug("< " + line);
             }
 
             if (!TestMode)
@@ -205,7 +205,7 @@
 
             if (LogAllCommunication)
             {
-                logger.WriteMessage("> " + line);
+                logger.LogDebug("> " + line);
             }
 
             return line;

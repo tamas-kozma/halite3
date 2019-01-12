@@ -35,7 +35,6 @@
         private OutboundMap originOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
-        private BitMapLayer stubbornShipForbiddenCellsMap;
         private MapBooster mapBooster;
 
         public MyBot(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
@@ -95,7 +94,7 @@
                 }
 
                 var turnTime = DateTime.Now - turnStartTime;
-                logger.WriteMessage("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
+                logger.LogDebug("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
 
                 var commands = new CommandList();
                 commands.PopulateFromPlayer(myPlayer);
@@ -113,154 +112,139 @@
                 int moveCost = (int)Math.Floor(originHaliteMap[ship.OriginPosition] * GameConstants.MoveCostRatio);
                 if (ship.Halite < moveCost)
                 {
-                    logger.WriteMessage("Ship " + ship.Id + " at " + ship.OriginPosition + " has not enough halite to move (" + ship.Halite + " vs " + moveCost + ").");
+                    logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + " has not enough halite to move (" + ship.Halite + " vs " + moveCost + ").");
                     ProcessShipOrder(ship, ship.OriginPosition);
                 }
 
-                shipQueue.Enqueue(ship, ship);
+                EnqueueShipForOrders(ship);
             }
 
             while (shipQueue.Count > 0)
             {
-            }
-
-            foreach (var ship in shipsOrdered)
-            {
-                if (ship.HasActionAssigned)
+                var ship = shipQueue.Dequeue();
+                if (!ship.HasActionAssigned)
                 {
-                    continue;
+                    TryAssignOrderToShip(ship);
+                    if (!ship.HasActionAssigned)
+                    {
+                        logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", requested retry.");
+                        EnqueueShipForOrders(ship);
+                        continue;
+                    }
                 }
 
-                AssignOrderToShip(ship);
-            }
-        }
-
-        private void UpdateStubbornShipMap()
-        {
-            stubbornShipForbiddenCellsMap.Clear();
-            foreach (var ship in myPlayer.Ships)
-            {
-                if (ship.HasActionAssigned)
+                Debug.Assert(ship.HasActionAssigned);
+                UpdateShipDestination(ship);
+                if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
                 {
-                    continue;
-                }
-
-                if (IsStubborn(ship))
-                {
-                    stubbornShipForbiddenCellsMap[ship.OriginPosition] = true;
+                    AdjustHaliteForSimulatedHarvest(ship);
                 }
             }
         }
 
-        private bool IsStubborn(MyShip ship)
+        private void EnqueueShipForOrders(MyShip ship)
         {
-            Debug.Assert(!ship.HasActionAssigned);
-            if (!ship.Destination.HasValue
-                || ship.Destination == ship.OriginPosition)
+            Debug.Assert(ship.OriginPosition == ship.Position);
+
+            if (!ship.Destination.HasValue)
             {
-                return true;
+                UpdateShipDestination(ship);
             }
 
-
-
-            return false;
+            shipQueue.Enqueue(ship, ship);
         }
 
-        // TODO: From here...
-        // IsForbidden doesn't have to return a bool, it can give back the push... information, and then I don't have to have it on ships
-        // Moving everywhere could be simplified and unified. If I have reliable IsForbidden information, like I do now...
-        // Dunno I'm tired.
-        private bool GetPushPath(MyShip vip, MyShip blocker)
+        private void SetShipMap(MyShip ship)
         {
-            var pushPath = new List<Position>() { vip.OriginPosition };
-            bool canPush = GetPushPathRecursive(blocker, vip, pushPath);
-            if (canPush)
+            switch (ship.Role)
             {
-                blocker.PushPath = pushPath;
-                return true;
-            }
-
-            return false;
-        }
-
-        private bool GetPushPathRecursive(MyShip pusher, MyShip blocker, List<Position> pushPath)
-        {
-            Debug.Assert(!pusher.HasActionAssigned 
-                && !blocker.HasActionAssigned 
-                && originHaliteMap.WraparoundDistance(pusher.OriginPosition, blocker.OriginPosition) == 1);
-
-            if (!blocker.Destination.HasValue
-                || blocker.Destination == blocker.OriginPosition
-                || blocker.Map == null)
-            {
-                return false;
-            }
-
-            var candidateEscapePositions = mapBooster
-                .GetNeighbours(blocker.OriginPosition)
-                .Where(position => !IsForbidden(blocker, position, true))
-                .OrderByDescending(position => blocker.MapDirection * blocker.Map[position]);
-
-            foreach (var position in candidateEscapePositions)
-            {
-                var blockerBlocker = myPlayer.ShipMap[position];
-                if (blockerBlocker != null)
-                {
-                    if (CanGiveWay()
-                }
-            }
-
-            return false;
-        }
-
-        private void AssignOrderToShip(MyShip ship)
-        {
-            while (true)
-            {
-                logger.WriteMessage("About to assing orders to ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + " and destination " + ship.Destination + ".");
-                bool retryRequested = false;
-                switch (ship.Role)
-                {
-                    case ShipRole.Harvester:
-                        retryRequested = AssignOrderToHarvester(ship);
-                        break;
-
-                    case ShipRole.Outbound:
-                        retryRequested = AssignOrderToOutboundShip(ship);
-                        break;
-
-                    case ShipRole.Inbound:
-                        retryRequested = AssignOrderToInboundShip(ship);
-                        break;
-                }
-
-                if (!retryRequested)
-                {
+                case ShipRole.Outbound:
+                    ship.Map = GetOutboundMap().OutboundPaths;
+                    ship.MapDirection = 1;
                     break;
-                }
 
-                logger.WriteMessage("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", requested retry.");
+                case ShipRole.Harvester:
+                    ship.Map = originAdjustedHaliteMap.Values;
+                    ship.MapDirection = 1;
+                    break;
+
+                case ShipRole.Inbound:
+                    ship.Map = GetReturnMap().PathCosts;
+                    ship.MapDirection = -1;
+                    break;
+
+                default:
+                    ship.Map = null;
+                    break;
             }
         }
 
-        private bool AssignOrderToInboundShip(MyShip ship)
+        private void UpdateShipDestination(MyShip ship)
         {
-            ship.Destination = ship.OriginPosition;
-            ProcessShipOrder(ship, ship.OriginPosition);
-            return false;
+            if (ship.Map == null)
+            {
+                SetShipMap(ship);
+            }
+
+            if (ship.Map != null)
+            {
+                int maxDistance = int.MaxValue;
+                if (ship.Role == ShipRole.Harvester)
+                {
+                    maxDistance = 1;
+                }
+
+                (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.Position, ship.Map, ship.MapDirection, maxDistance);
+                ship.Destination = optimalDestination;
+                ship.DistanceFromDestination = optimalDestinationDistance;
+            }
         }
 
-        private bool AssignOrderToHarvester(MyShip ship)
+        private void SetShipRole(MyShip ship, ShipRole role)
         {
-            var adjustedHaliteMap = GetAdjustedHaliteMap();
-            var outboundMap = GetOutboundMap();
+            logger.LogDebug(ship + " changes role to " + role + ".");
+            ship.Role = role;
+            ship.Map = null;
+            ship.Destination = null;
+        }
 
-            var neighbourhoodInfo = DiscoverNeighbourhood(
-                ship.OriginPosition,
-                adjustedHaliteMap.Values,
-                (Position candidate, double candidateValue, Position bestSoFar, double bestSoFarValue) => candidateValue > bestSoFarValue);
+        private void TryAssignOrderToShip(MyShip ship)
+        {
+            logger.LogDebug("About to assing orders to ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + " and destination " + ship.Destination + ".");
+
+            SetShipMap(ship);
+            switch (ship.Role)
+            {
+                case ShipRole.Harvester:
+                    TryAssignOrderToHarvester(ship);
+                    break;
+
+                case ShipRole.Outbound:
+                    TryAssignOrderToOutboundShip(ship);
+                    break;
+
+                case ShipRole.Inbound:
+                    TryAssignOrderToInboundShip(ship);
+                    break;
+
+                default:
+                    Debug.Fail("Unexpected ship role.");
+                    ProcessShipOrder(ship, ship.OriginPosition);
+                    break;
+            }
+        }
+
+        private void TryAssignOrderToInboundShip(MyShip ship)
+        {
+            ProcessShipOrder(ship, ship.OriginPosition);
+        }
+
+        private void TryAssignOrderToHarvester(MyShip ship)
+        {
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
 
             // Handles the case when there's too little halite left in the neighbourhood.
+            var outboundMap = GetOutboundMap();
             double pathValueAtBestPosition = outboundMap.OutboundPaths[neighbourhoodInfo.BestPosition];
             if (pathValueAtBestPosition != 0)
             {
@@ -268,13 +252,10 @@
                 bool isPointlessToHarvest = (bestHaliteToPathValueRatio < tuningSettings.HarvesterToOutboundConversionMaximumHaliteRatio);
                 if (isPointlessToHarvest)
                 {
-                    ship.Role = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound)
-                        ? ShipRole.Outbound
-                        : ShipRole.Inbound;
-
-                    logger.WriteMessage("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + ship.Role + " because there's not enough halite here (pathValueAtBestPosition = " + pathValueAtBestPosition + ", bestValue = " + neighbourhoodInfo.BestValue + ").");
-
-                    return true;
+                    var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
+                    logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (pathValueAtBestPosition = " + pathValueAtBestPosition + ", bestValue = " + neighbourhoodInfo.BestValue + ").");
+                    SetShipRole(ship, newRole);
+                    return;
                 }
             }
 
@@ -285,17 +266,8 @@
                 bool wantsToMove = WantsToMoveTo(neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestAllowedValue);
                 if (wantsToMove)
                 {
-                    if (ShouldHarvestAt(neighbourhoodInfo.BestAllowedPosition))
-                    {
-                        ship.Destination = neighbourhoodInfo.BestAllowedPosition;
-                        bool orderAssigned = TryProcessShipOrderHandlingShipInTheWay(ship, neighbourhoodInfo.BestAllowedPosition);
-                        return !orderAssigned;
-                    }
-                    else
-                    {
-                        ship.Role = ShipRole.Inbound;
-                        return true;
-                    }
+                    HarvestOrGoHome(neighbourhoodInfo.BestAllowedPosition);
+                    return;
                 }
             }
 
@@ -304,26 +276,17 @@
                 && neighbourhoodInfo.OriginValue < neighbourhoodInfo.BestValue)
             {
                 bool wantsToMove = WantsToMoveTo(neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestValue);
-                AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo.NullableBestAllowedNeighbourPosition);
-                return false;
+                AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo);
+                return;
             }
 
             // What's left is the case when the ship is not blocked and staying is better than moving.
-            if (ShouldHarvestAt(ship.OriginPosition))
-            {
-                ship.Destination = ship.OriginPosition;
-                ProcessShipOrder(ship, ship.OriginPosition);
-                return false;
-            }
-            else
-            {
-                ship.Role = ShipRole.Inbound;
-                return true;
-            }
+            HarvestOrGoHome(ship.OriginPosition);
+            return;
 
             bool WantsToMoveTo(double originAdjustedHalite, double neighbourAdjustedHalite)
             {
-                if (neighbourAdjustedHalite == 0)
+                if (neighbourAdjustedHalite < 1d)
                 {
                     return false;
                 }
@@ -336,27 +299,39 @@
             {
                 int halite = originHaliteMap[position];
                 int extractableIgnoringCapacity = GetExtractedAmountIgnoringCapacity(halite);
-                return (ship.Halite < tuningSettings.HarvesterMinimumFillDefault
-                    || extractableIgnoringCapacity <= availableCapacity);
+                if (extractableIgnoringCapacity == 0)
+                {
+                    return false;
+                }
+
+                if (ship.Halite < tuningSettings.HarvesterMinimumFillDefault
+                    || availableCapacity >= extractableIgnoringCapacity)
+                {
+                    return true;
+                }
+
+                int overflow = extractableIgnoringCapacity - availableCapacity;
+                double overfillRatio = overflow / (double)extractableIgnoringCapacity;
+                return (overfillRatio <= tuningSettings.HarvesterAllowedOverfillRatio);
+            }
+
+            void HarvestOrGoHome(Position position)
+            {
+                if (ShouldHarvestAt(position))
+                {
+                    ProcessShipOrder(ship, position);
+                }
+                else
+                {
+                    SetShipRole(ship, ShipRole.Inbound);
+                }
             }
         }
 
-        private bool AssignOrderToOutboundShip(MyShip ship)
+        private void TryAssignOrderToOutboundShip(MyShip ship)
         {
-            var adjustedHaliteMap = GetAdjustedHaliteMap();
-            var outboundMap = GetOutboundMap();
-            var paths = outboundMap.OutboundPaths;
-
-            var neighbourhoodInfo = DiscoverNeighbourhood(
-                ship.OriginPosition, 
-                paths, 
-                (Position candidate, double candidateValue, Position bestSoFar, double bestSoFarValue) 
-                    => (candidateValue > bestSoFarValue
-                        || (candidateValue == bestSoFarValue
-                            && originHaliteMap[candidate] < originHaliteMap[bestSoFar])));
-
-            (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.OriginPosition, paths, false);
-            ship.Destination = optimalDestination;
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship,
+                (candidate, bestSoFar) => (originHaliteMap[candidate] < originHaliteMap[bestSoFar]));
 
             if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
             {
@@ -364,7 +339,7 @@
                 if (isBlocked)
                 {
                     bool hasArrived = false;
-                    double originAdjustedHalite = adjustedHaliteMap.Values[ship.OriginPosition];
+                    double originAdjustedHalite = originAdjustedHaliteMap.Values[ship.OriginPosition];
                     if (neighbourhoodInfo.OriginValue != 0)
                     {
                         double originHaliteToPathValueRatio = originAdjustedHalite / neighbourhoodInfo.OriginValue;
@@ -373,102 +348,66 @@
 
                     if (!hasArrived)
                     {
-                        AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo.NullableBestAllowedNeighbourPosition);
-                        return false;
+                        AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo);
+                        return;
                     }
                 }
 
-                logger.WriteMessage("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", halite = " + adjustedHaliteMap.Values[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
-                ship.Role = ShipRole.Harvester;
-                return true;
+                logger.LogDebug("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", halite = " + originAdjustedHaliteMap.Values[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
+                SetShipRole(ship, ShipRole.Harvester);
+                return;
             }
 
-            bool orderAssigned = TryProcessShipOrderHandlingShipInTheWay(ship, neighbourhoodInfo.BestAllowedPosition);
-            return !orderAssigned;
-        }
-
-        private bool TryProcessShipOrderHandlingShipInTheWay(MyShip ship, Position targetPosition, bool isBlocked = false)
-        {
-            Debug.Assert(!ship.HasActionAssigned);
-            if (targetPosition != ship.OriginPosition)
-            {
-                var shipMap = myPlayer.ShipMap;
-                var otherShip = shipMap[targetPosition];
-                if (otherShip != null)
-                {
-                    Debug.Assert(otherShip != ship);
-                    Debug.Assert(!otherShip.HasActionAssigned, "Otherwise it would not be there, or the cell would be forbidden.");
-
-                    if (ship.Role.IsHigherPriorityThan(otherShip.Role) || otherShip.IsHoldingTheDoor)
-                    {
-                        // Switching places, either because this ship has higher priority, or because asking the other ship
-                        // to move would potentially lead to infinite recursion.
-                        logger.WriteMessage("Ship " + ship.Id + " goes from " + ship.OriginPosition + " to " + targetPosition + " and switches place with ship " + otherShip.Id + ".");
-                        ProcessShipOrder(otherShip, ship.OriginPosition);
-                    }
-                    else
-                    {
-                        Debug.Assert(!ship.IsHoldingTheDoor);
-                        ship.IsHoldingTheDoor = true;
-                        logger.WriteMessage("Ship " + ship.Id + " wants to go from " + ship.OriginPosition + " to " + targetPosition + ", but first holds the door for ship " + otherShip.Id + ".");
-                        AssignOrderToShip(otherShip);
-                        ship.IsHoldingTheDoor = false;
-                        return ship.HasActionAssigned;
-                    }
-                }
-            }
-
-            ProcessShipOrder(ship, targetPosition, isBlocked);
-            return true;
+            ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
         }
 
         // TODO: Implement. What I have here now is just temporary.
-        private void AssignOrderToBlockedShip(MyShip ship, Position desiredNeighbour, Position? bestAvailableNeighbour)
+        private void AssignOrderToBlockedShip(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
         {
             var targetPosition = ship.OriginPosition;
-            int originDistanceFromDropoff = myPlayer.DistanceFromDropoffMap[ship.OriginPosition];
-            bool isAroundDropoff = (originDistanceFromDropoff <= 1);
-            if (isAroundDropoff)
+            if (ship.Role != ShipRole.Inbound)
             {
-                if (bestAvailableNeighbour.HasValue 
-                    && myPlayer.DistanceFromDropoffMap[bestAvailableNeighbour.Value] > originDistanceFromDropoff)
+                int originDistanceFromDropoff = myPlayer.DistanceFromDropoffMap[ship.OriginPosition];
+                bool isAroundDropoff = (originDistanceFromDropoff <= 1);
+                if (isAroundDropoff)
                 {
-                    targetPosition = bestAvailableNeighbour.Value;
+                    var bestAvailableNeighbour = neighbourhoodInfo.NullableBestAllowedNeighbourPosition;
+                    if (bestAvailableNeighbour.HasValue
+                        && myPlayer.DistanceFromDropoffMap[bestAvailableNeighbour.Value] > originDistanceFromDropoff)
+                    {
+                        targetPosition = bestAvailableNeighbour.Value;
+                    }
                 }
             }
 
-            bool orderAssigned = TryProcessShipOrderHandlingShipInTheWay(ship, targetPosition, true);
-            if (!orderAssigned)
-            {
-                ProcessShipOrder(ship, ship.OriginPosition, true);
-            }
+            ProcessShipOrder(ship, targetPosition, true);
         }
 
-        private NeighbourhoodInfo DiscoverNeighbourhood(Position originPosition, DataMapLayer<double> map, Func<Position, double, Position, double, bool> isBetter)
+        private NeighbourhoodInfo DiscoverNeighbourhood(MyShip ship, Func<Position, Position, bool> tiebreakerIsBetter)
         {
+            Debug.Assert(ship.Map != null);
+            Debug.Assert(!ship.HasActionAssigned);
+
             // It is always allowed to stay put for now (later I might want to flee from bullies).
-            double originValue = map[originPosition];
+            double originValue = ship.MapDirection * ship.Map[ship.OriginPosition];
             var info = new NeighbourhoodInfo()
             {
                 OriginValue = originValue,
-                OriginPosition = originPosition,
+                OriginPosition = ship.OriginPosition,
                 BestAllowedValue = originValue,
-                BestAllowedPosition = originPosition,
+                BestAllowedPosition = ship.OriginPosition,
                 BestValue = originValue,
-                BestPosition = originPosition,
+                BestPosition = ship.OriginPosition,
                 BestAllowedNeighbourValue = -1d,
                 BestAllowedNeighbourPosition = default(Position)
             };
 
-            var neighbourArray = mapBooster.GetNeighbours(originPosition);
+            var neighbourArray = mapBooster.GetNeighbours(ship.OriginPosition);
             foreach (var candidatePosition in neighbourArray)
             {
-                double pathValue = map[candidatePosition];
-                if (forbiddenCellsMap[candidatePosition])
-                {
-                    UpdateIfBetter(candidatePosition, pathValue, ref info.BestPosition, ref info.BestValue);
-                }
-                else
+                double pathValue = ship.MapDirection * ship.Map[candidatePosition];
+                UpdateIfBetter(candidatePosition, pathValue, ref info.BestPosition, ref info.BestValue);
+                if (!IsForbidden(ship, candidatePosition))
                 {
                     UpdateIfBetter(candidatePosition, pathValue, ref info.BestAllowedPosition, ref info.BestAllowedValue);
                     UpdateIfBetter(candidatePosition, pathValue, ref info.BestAllowedNeighbourPosition, ref info.BestAllowedNeighbourValue);
@@ -479,7 +418,10 @@
 
             void UpdateIfBetter(Position candidate, double candidateValue, ref Position bestSoFar, ref double bestSoFarValue)
             {
-                if (isBetter.Invoke(candidate, candidateValue, bestSoFar, bestSoFarValue))
+                if (candidateValue > bestSoFarValue 
+                    || (tiebreakerIsBetter != null 
+                        && candidateValue == bestSoFarValue 
+                        && tiebreakerIsBetter.Invoke(candidate, bestSoFar)))
                 {
                     bestSoFar = candidate;
                     bestSoFarValue = candidateValue;
@@ -487,30 +429,29 @@
             }
         }
 
-        private (Position, int) FollowPath(Position start, DataMapLayer<double> map, bool isMinSearch = true)
+        private (Position, int) FollowPath(Position start, DataMapLayer<double> map, int mapDirection, int maxDistance = int.MaxValue)
         {
             var position = start;
-            int multiplier = (isMinSearch) ? 1 : -1;
-            double value = map[start] * multiplier;
+            double value = map[start] * mapDirection;
             int distance = 0;
-            while (true)
+            while (distance < maxDistance)
             {
-                var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
+                var neighbourArray = mapBooster.GetNeighbours(position);
                 double bestNeighbourValue = double.MaxValue;
                 var bestNeighbour = default(Position);
                 foreach (var neighbour in neighbourArray)
                 {
-                    double neighbourValue = map[neighbour] * multiplier;
-                    if (neighbourValue < bestNeighbourValue)
+                    double neighbourValue = map[neighbour] * mapDirection;
+                    if (neighbourValue > bestNeighbourValue)
                     {
                         bestNeighbour = neighbour;
                         bestNeighbourValue = neighbourValue;
                     }
                 }
 
-                if (bestNeighbourValue >= value)
+                if (bestNeighbourValue <= value)
                 {
-                    return (bestNeighbour, distance);
+                    break;
                 }
                 else
                 {
@@ -519,13 +460,15 @@
                     value = bestNeighbourValue;
                 }
             }
+
+            return (position, distance);
         }
 
         private void ProcessShipOrder(MyShip ship, Position position, bool isBlocked = false)
         {
             Debug.Assert(!ship.HasActionAssigned);
 
-            logger.WriteMessage("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", got ordered to " + position + ", towards destination " + ship.Destination + " (isBlocked = " + isBlocked + ").");
+            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", got ordered to " + position + ", towards destination " + ship.Destination + " (isBlocked = " + isBlocked + ").");
 
             ship.Position = position;
             forbiddenCellsMap[position] = true;
@@ -567,7 +510,6 @@
             mapHeight = originHaliteMap.Height;
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
-            stubbornShipForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
 
             haliteEngineInterface.Ready(Name);
@@ -628,8 +570,137 @@
 
         private bool IsForbidden(MyShip ship, Position position, bool ignoreBlocker = false)
         {
-            throw new NotImplementedException();
-            return forbiddenCellsMap[position] || stubbornShipForbiddenCellsMap[position];
+            Debug.Assert(!ship.HasActionAssigned 
+                && originHaliteMap.WraparoundDistance(ship.OriginPosition, position) == 1);
+
+            if (forbiddenCellsMap[position])
+            {
+                return true;
+            }
+
+            // TODO: Doing it like the below code does leads to too much complication. Change the outbound map instead to leave out
+            // dropoff neighbours. Then add a calculated layer on top of the outbound paths that fills in the gaps, and use that when
+            // a ship is on one of the "forbiden" cells. Maybe...
+            /*if (ship.Role == ShipRole.Outbound)
+            {
+                // Outbound ships should not wander through dropoffs.
+                int distanceFromDropoff = myPlayer.DistanceFromDropoffMap[position];
+                if (distanceFromDropoff <= 1)
+                {
+                    int originDistanceFromDropoff = myPlayer.DistanceFromDropoffMap[ship.OriginPosition];
+                    if (distanceFromDropoff < originDistanceFromDropoff)
+                    {
+                        return true;
+                    }
+                }
+            }*/
+
+            if (!ignoreBlocker)
+            {
+                var blocker = myPlayer.ShipMap[position];
+                Debug.Assert(blocker != ship && !blocker.HasActionAssigned);
+
+                if (blocker != null)
+                {
+                    bool canPush = GetPushPath(ship, blocker);
+                    if (!canPush)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool GetPushPath(MyShip vip, MyShip blocker)
+        {
+            var pushPath = new Stack<Position>();
+            pushPath.Push(vip.OriginPosition);
+            bool canPush = GetPushPathRecursive(vip, blocker, pushPath);
+            if (canPush)
+            {
+                logger.LogDebug(vip + " considers pushing " + blocker + " (" + string.Join("->", pushPath) + ").");
+            }
+            else
+            {
+                if (vip.Role.IsHigherPriorityThan(blocker.Role))
+                {
+                    logger.LogDebug(vip + " considers switching places by force with " + blocker + ".");
+                    pushPath.Push(blocker.OriginPosition);
+                    pushPath.Push(vip.OriginPosition);
+                    canPush = true;
+                }
+            }
+
+            if (canPush)
+            {
+                blocker.PushPath = pushPath;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool GetPushPathRecursive(MyShip pusher, MyShip blocker, Stack<Position> pushPath)
+        {
+            Debug.Assert(!pusher.HasActionAssigned
+                && !blocker.HasActionAssigned
+                && originHaliteMap.WraparoundDistance(pusher.OriginPosition, blocker.OriginPosition) == 1);
+
+            if (!blocker.Destination.HasValue
+                || blocker.Destination == blocker.OriginPosition
+                || blocker.Map == null)
+            {
+                return false;
+            }
+
+            var allowedNeighboursOrdered = mapBooster
+                .GetNeighbours(blocker.OriginPosition)
+                .Where(position => !IsForbidden(blocker, position, true))
+                .OrderByDescending(position => blocker.MapDirection * blocker.Map[position]);
+
+            pushPath.Push(blocker.OriginPosition);
+            double originValue = blocker.MapDirection * blocker.Map[blocker.OriginPosition];
+            foreach (var position in allowedNeighboursOrdered)
+            {
+                double value = blocker.MapDirection * blocker.Map[position];
+                if (value < originValue)
+                {
+                    break;
+                }
+
+                var blockerBlocker = myPlayer.ShipMap[position];
+                if (blockerBlocker != null)
+                {
+                    if (position == pusher.OriginPosition)
+                    {
+                        if (pushPath.Count != 2)
+                        {
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (pushPath.Contains(position))
+                        {
+                            continue;
+                        }
+
+                        bool canPush = GetPushPathRecursive(blocker, blockerBlocker, pushPath);
+                        if (!canPush)
+                        {
+                            continue;
+                        }
+                    }
+                }
+
+                pushPath.Push(position);
+                return true;
+            }
+
+            pushPath.Pop();
+            return false;
         }
 
         private void MarkOpponentShipyardsAsForbidden()
@@ -653,12 +724,7 @@
             haliteMap[ship.Position] = halite;
             ship.Halite += extracted;
 
-            if (ship.Role == ShipRole.Harvester)
-            {
-                // Optimization. Non-harvesters will only stop for refueling, on cells that likely don't have much halite.
-                // Those small changes should be fine to ignore.
-                ResetHaliteDependentState();
-            }
+            ResetHaliteDependentState();
         }
 
         private int GetExtractedAmountIgnoringCapacity(int halite)
@@ -674,7 +740,12 @@
 
         private void AdjustHaliteForSimulatedHarvest(MyShip ship)
         {
-            var position = ship.Destination;
+            if (!ship.Destination.HasValue)
+            {
+                return;
+            }
+
+            var position = ship.Destination.Value;
             int localHalite = haliteMap[position];
             int haliteInShip = ship.Halite;
             while (true)
@@ -768,7 +839,7 @@
             }
             catch (Exception exception)
             {
-                logger.WriteMessage(exception.ToString());
+                logger.LogDebug(exception.ToString());
             }
         }
 
@@ -847,27 +918,14 @@
             }
 
             haliteMap = new DataMapLayer<int>(originHaliteMap);
-
             ResetHaliteDependentState();
+
             originReturnMap = GetReturnMap();
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
-
-            // Updating the halite map based on assigned destinations from the previous turn. Initially I wanted to do this
-            // right after a ship has moved, but that messed up all planning because ship turn order is not reliable and therefore
-            // halite amounts seemingly changed a lot from turn to turn.
-            var harvestSimulationSubjectsOrdered = myPlayer.Ships
-                .Where(ship => ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
-                .OrderBy(ship => haliteMap.WraparoundDistance(ship.OriginPosition, ship.Destination));
-
-            foreach (var ship in harvestSimulationSubjectsOrdered)
-            {
-                AdjustHaliteForSimulatedHarvest(ship);
-            }
-
-            ResetHaliteDependentState();
         }
 
+        [Conditional("DEBUG")]
         private void PrintMaps()
         {
             PaintMap(originHaliteMap, "haliteMap");
@@ -878,18 +936,21 @@
             PaintMap(dangerousOutboundMap.OutboundPaths, "outboundPaths");
         }
 
+        [Conditional("DEBUG")]
         private void PaintMap(MapLayer<int> map, string name)
         {
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }
 
+        [Conditional("DEBUG")]
         private void PaintMap(MapLayer<double> map, string name)
         {
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }
 
+        [Conditional("DEBUG")]
         private void PrintSvg(string svg, string name)
         {
             File.WriteAllText(name + "-" + myPlayer.Id + ".svg", svg);

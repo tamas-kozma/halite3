@@ -20,6 +20,7 @@
         public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.55d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
-        public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.4d;
+        public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.5d;
+        public double HarvesterAllowedOverfillRatio { get; set; } = 0.5d;
     }
 }

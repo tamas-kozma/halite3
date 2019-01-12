@@ -21,7 +21,7 @@
         public PriorityQueue(IComparer<TPriority> newComparer)
         {
             list = new List<PriorityQueue<TPriority, TValue>.Node>();
-            comparer = (newComparer == null) ? Comparer<TPriority>.Default : newComparer;
+            comparer = newComparer ?? Comparer<TPriority>.Default;
         }
         
         public PriorityQueue(int capacity) 
@@ -32,9 +32,7 @@
         public PriorityQueue(int capacity, IComparer<TPriority> newComparer)
         {
             list = new List<PriorityQueue<TPriority, TValue>.Node>(capacity);
-            comparer = (newComparer == null) 
-                ? Comparer<TPriority>.Default 
-                : newComparer;
+            comparer = newComparer ?? Comparer<TPriority>.Default;
         }
 
         public PriorityQueue(ICollection<TPriority> priorities, ICollection<TValue> values) 
@@ -58,9 +56,7 @@
             }
 
             list = new List<PriorityQueue<TPriority, TValue>.Node>(priorities.Count);
-            comparer = (newComparer == null) 
-                ? Comparer<TPriority>.Default 
-                : newComparer;
+            comparer = newComparer ?? Comparer<TPriority>.Default;
             
             IEnumerator<TPriority> priorityEnumerator = priorities.GetEnumerator();
             IEnumerator<TValue> valueEnumerator = values.GetEnumerator();

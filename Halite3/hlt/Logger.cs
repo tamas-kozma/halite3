@@ -1,6 +1,7 @@
 ﻿namespace Halite3.hlt
 {
     using System;
+    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
 
@@ -13,7 +14,8 @@
             this.path = path;
         }
 
-        public void WriteMessage(string message)
+        [Conditional("DEBUG")]
+        public void LogDebug(string message)
         {
             string timestamp = DateTime.Now.ToString("o", CultureInfo.InvariantCulture);
             string prefix = timestamp + ": ";
