@@ -2,9 +2,11 @@
 {
     public enum ShipRole
     {
-        SpecialAgent = 0,
-        Inbound = 1,
-        Harvester = 2,
-        Outbound = 3
+        Dropoff = 0, // Used only when predicting the role of a builder at its destination.
+        SpecialAgent = 1,
+        Builder = 2,
+        Inbound = 3,
+        Harvester = 4,
+        Outbound = 5
     }
 }
