@@ -60,6 +60,23 @@
             return rowDistance + columnDistance;
         }
 
+        public int MaxSingleDimensionDistance(Position position1, Position position2)
+        {
+            int rowDistance = Math.Abs(position2.Row - position1.Row);
+            if (rowDistance > halfHeight)
+            {
+                rowDistance = Height - rowDistance;
+            }
+
+            int columnDistance = Math.Abs(position2.Column - position1.Column);
+            if (columnDistance > halfWidth)
+            {
+                columnDistance = Width - columnDistance;
+            }
+
+            return Math.Max(rowDistance, columnDistance);
+        }
+
         public void GetNeighbours(Position position, Position[] neighbourArray)
         {
             neighbourArray[0] = new Position(position.Row, NormalizeSingleNegativeColumn(position.Column - 1));
@@ -80,31 +97,38 @@
 
         public void GetCircleCells(Position position, int radius, Position[] positionArray)
         {
-            int index = 0;
-            for (int rowDelta = 0; rowDelta < radius; rowDelta++)
+            if (radius == 0)
             {
-                int columnDelta = radius - rowDelta;
-                positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
-                positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
-                positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
-                positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
+                positionArray[0] = position;
             }
+            else
+            {
+                int index = 0;
+                for (int delta1 = 0; delta1 < radius; delta1++)
+                {
+                    int delta2 = radius - delta1;
+                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - delta1), NormalizeSingleNegativeColumn(position.Column - delta2));
+                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - delta2), NormalizeNonNegativeColumn(position.Column + delta1));
+                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + delta1), NormalizeNonNegativeColumn(position.Column + delta2));
+                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + delta2), NormalizeSingleNegativeColumn(position.Column - delta1));
+                }
 
-            Debug.Assert(index == positionArray.Length);
+                Debug.Assert(index == positionArray.Length);
+            }
         }
 
         public void GetDiscCells(Position position, int radius, Position[] positionArray)
         {
             positionArray[0] = position;
             int index = 1;
-            for (int rowDelta = 0; rowDelta < radius; rowDelta++)
+            for (int delta1 = 0; delta1 < radius; delta1++)
             {
-                for (int columnDelta = 1; columnDelta <= radius - rowDelta; columnDelta++)
+                for (int delta2 = 1; delta2 <= radius - delta1; delta2++)
                 {
-                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
-                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeSingleNegativeColumn(position.Column - columnDelta));
-                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
-                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + rowDelta), NormalizeNonNegativeColumn(position.Column + columnDelta));
+                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - delta1), NormalizeSingleNegativeColumn(position.Column - delta2));
+                    positionArray[index++] = new Position(NormalizeSingleNegativeRow(position.Row - delta2), NormalizeNonNegativeColumn(position.Column + delta1));
+                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + delta1), NormalizeNonNegativeColumn(position.Column + delta2));
+                    positionArray[index++] = new Position(NormalizeNonNegativeRow(position.Row + delta2), NormalizeSingleNegativeColumn(position.Column - delta1));
                 }
             }
 

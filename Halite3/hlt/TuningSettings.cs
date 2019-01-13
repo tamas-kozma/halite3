@@ -4,7 +4,11 @@
     {
         public double ReturnPathDistancePenaltyMultiplier { get; set; } = 0.5d;
 
-        public double OutboundMapLostHaliteMultiplier { get; set; } = 1d;
+        // TODO: They kill each other with the new temporary blocked ship stuff
+        // Maybe the maps should not take people to forbidden places?
+        // Etc etc...
+        public double AdjustedHaliteMapLostHaliteMultiplier { get; set; } = 0.4d; // 1 (or 0.8-0.6?!) TODO
+
         public int OutboundMapMinOpponentHarvesterHalite { get; set; } = 50;
         public int OutboundMapMaxOpponentHarvesterHalite { get; set; } = 800;
         public int OutboundMapOpponentHarvesterBonusRadius { get; set; } = 5;
@@ -12,12 +16,12 @@
         public int OutboundMapOpponentDropoffPenaltyRadius { get; set; } = 10;
         public double OutboundMapOpponentDropoffPenaltyMultiplier { get; set; } = 0.5d;
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
-        public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.96d;
+        public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.92d; // 0.96
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
 
         public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.9d;
 
-        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.55d;
+        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.57d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
         public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.5d;

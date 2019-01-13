@@ -28,7 +28,7 @@
             {
                 int halite = BaseHaliteMap[position];
                 int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
-                double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.OutboundMapLostHaliteMultiplier;
+                double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
                 Values[position] = Math.Max(halite - lostHalite, 0);
             }
 
@@ -36,6 +36,7 @@
             var opponentPlayerUpdateMessages = TurnMessage.PlayerUpdates
                 .Where(message => message.PlayerId != myPlayerId);
 
+            // TODO: Replace this with a more permanent smell based bonus, to reduce destination fluctuation.
             var opponentHarvesterPositions = opponentPlayerUpdateMessages
                 .SelectMany(message => message.Ships)
                 .Where(shipMessage =>

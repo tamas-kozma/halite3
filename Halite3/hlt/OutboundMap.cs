@@ -118,12 +118,14 @@
             {
                 double valueAtCell = adjustedHaliteValues[position];
                 double averageAtCell = DiscAverageLayer[position];
-                harvestAreaMap[position] = (valueAtCell * centerWeight + averageAtCell) / centerWeightPlusOne;
+                harvestAreaMap[position] = (valueAtCell >= averageAtCell)
+                    ? (valueAtCell * centerWeight + averageAtCell) / centerWeightPlusOne
+                    : 0;
             }
 
             foreach (var position in MyPlayer.DropoffPositions)
             {
-                HarvestAreaMap[position] = 0;
+                harvestAreaMap[position] = 0;
             }
         }
     }
