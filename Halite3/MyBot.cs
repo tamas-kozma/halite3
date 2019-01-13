@@ -231,6 +231,7 @@
 
                 if (ship.Role == ShipRole.Outbound && optimalDestinationDistance < 3)
                 {
+                    // TODO: Move to tuningsettings.
                     ship.IsOutboundGettingClose = true;
                 }
             }
@@ -419,6 +420,7 @@
                         int difference = Math.Abs(candidateMaxDimensionDistance - bestSoFarMaxDimensionDistance);
                         if (difference > 4)
                         {
+                            // TODO: Move to tuningsettings.
                             return (candidateMaxDimensionDistance < bestSoFarMaxDimensionDistance);
                         }
                     }
