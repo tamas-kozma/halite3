@@ -67,3 +67,8 @@
 * Repeat ship order assignment as long as there are destination changes?
 ** Or do it even better...
 * Paths around opponents make it a lot harder to detect opponent blockers and to counteract them - see if it is a problem and fix it if needed
+** The first few games seem to confirm that this is not a good idea
+** My ships will not go there where the halite is if some enemy ships are also there
+* Maybe when there will be real competition it will be better to go further for more halite?
+* Limit max halite in sea to around 2000
+** More than that will attract ships from far away, bu they will never make it there in time
