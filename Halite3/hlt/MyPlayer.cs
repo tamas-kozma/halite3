@@ -5,28 +5,20 @@
     using System.Diagnostics;
     using System.Linq;
 
-    public sealed class MyPlayer
+    public sealed class MyPlayer : Player
     {
-        public string Id { get; private set; }
-        public Position ShipyardPosition { get; private set; }
-        public int Halite { get; private set; }
-
-        /// <summary>
-        /// Including the shipyard.
-        /// </summary>
-        public List<Position> DropoffPositions { get; private set; } = new List<Position>();
-
-        public List<MyShip> Ships { get; private set; } = new List<MyShip>();
-
-        /// <summary>
-        /// Ships sunk in the last turn.
-        /// </summary>
-        public List<MyShip> Shipwrecks { get; private set; } = new List<MyShip>();
-
+        public List<MyShip> MyShips { get; private set; } = new List<MyShip>();
+        public DataMapLayer<MyShip> MyShipMap { get; private set; }
         public MyShip NewShip { get; private set; }
-        public DataMapLayer<MyShip> ShipMap { get; private set; }
 
-        public DataMapLayer<int> DistanceFromDropoffMap { get; private set; }
+        public override void Initialize(PlayerInitializationMessage playerMessage, DataMapLayer<int> initialHaliteMap)
+        {
+            base.Initialize(playerMessage, initialHaliteMap);
+
+            int mapWidth = initialHaliteMap.Width;
+            int mapHeight = initialHaliteMap.Height;
+            MyShipMap = new DataMapLayer<MyShip>(mapWidth, mapHeight);
+        }
 
         public void BuildShip()
         {
@@ -47,28 +39,8 @@
             throw new NotImplementedException();
         }
 
-        public void Initialize(GameInitializationMessage initializationMessage)
+        protected override void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
         {
-            Id = initializationMessage.MyPlayerId;
-
-            var myPlayerMessage = initializationMessage.Players.Single(message => message.PlayerId == Id);
-            ShipyardPosition = myPlayerMessage.ShipyardPosition;
-            Halite = 5000;
-            DropoffPositions.Add(ShipyardPosition);
-
-            int mapWidth = initializationMessage.MapWithHaliteAmounts.Width;
-            int mapHeight = initializationMessage.MapWithHaliteAmounts.Height;
-            ShipMap = new DataMapLayer<MyShip>(mapWidth, mapHeight);
-
-            DistanceFromDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            UpdateDropoffDistances();
-        }
-
-        public void Update(TurnMessage turnMessage)
-        {
-            var playerMessage = turnMessage.PlayerUpdates.Single(message => message.PlayerId == Id);
-            Halite = playerMessage.Halite;
-
             if (playerMessage.Dropoffs.Length + 1 != DropoffPositions.Count)
             {
                 throw new BotFailedException();
@@ -87,7 +59,11 @@
                     throw new BotFailedException();
                 }
             }
+        }
 
+        protected override void HandleShipMessages(PlayerUpdateMessage playerMessage)
+        {
+            //Logger.LogDebug("HandleShipMessages: NewShip = " + NewShip);
             if (NewShip != null)
             {
                 var newShipMessage = playerMessage.Ships.FirstOrDefault(shipMessage => shipMessage.Position == NewShip.Position);
@@ -99,58 +75,38 @@
                 {
                     NewShip.Id = newShipMessage.ShipId;
                     Ships.Add(NewShip);
+                    MyShips.Add(NewShip);
                     ShipMap[NewShip.Position] = NewShip;
+                    MyShipMap[NewShip.Position] = NewShip;
                 }
             }
 
             NewShip = null;
 
-            Shipwrecks.Clear();
-            var shipMessagesById = playerMessage.Ships.ToDictionary(message => message.ShipId);
-            for (int i = 0; i < Ships.Count; i++)
-            {
-                var ship = Ships[i];
-                if (!shipMessagesById.TryGetValue(ship.Id, out var shipMessage))
-                {
-                    Shipwrecks.Add(ship);
-                    ShipMap[ship.Position] = null;
-                    Ships.RemoveAt(i);
-                    i--;
-                    continue;
-                }
+            base.HandleShipMessages(playerMessage);
+        }
 
-                if (ship.Position != shipMessage.Position)
-                {
-                    throw new BotFailedException();
-                }
+        protected override void HandleSunkShip(Ship ship)
+        {
+            MyShipMap[ship.Position] = null;
+            MyShips.Remove(ship as MyShip);
+        }
 
-                ship.OriginPosition = ship.Position;
-                ship.Halite = shipMessage.Halite;
-                ship.HasActionAssigned = false;
-            }
-
-            if (Ships.Count != playerMessage.Ships.Length)
+        protected override void HandleAliveShip(Ship ship, ShipMessage shipMessage)
+        {
+            var myShip = ship as MyShip;
+            if (ship.Position != shipMessage.Position)
             {
                 throw new BotFailedException();
             }
+
+            myShip.OriginPosition = shipMessage.Position;
+            myShip.HasActionAssigned = false;
         }
 
-        private void UpdateDropoffDistances()
+        protected override Ship HandleNewShip(ShipMessage shipMessage)
         {
-            foreach (var position in DistanceFromDropoffMap.AllPositions)
-            {
-                int minDistance = int.MaxValue;
-                foreach (var dropoffPosition in DropoffPositions)
-                {
-                    int distance = DistanceFromDropoffMap.WraparoundDistance(position, dropoffPosition);
-                    if (distance < minDistance)
-                    {
-                        minDistance = distance;
-                    }
-                }
-
-                DistanceFromDropoffMap[position] = minDistance;
-            }
+            throw new BotFailedException();
         }
     }
 }

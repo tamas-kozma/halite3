@@ -13,6 +13,12 @@
             bits = new BitArray(CellCount);
         }
 
+        public BitMapLayer(BitMapLayer other)
+            : base(other.Width, other.Height)
+        {
+            bits = new BitArray(other.bits);
+        }
+
         public bool this[Position position]
         {
             get

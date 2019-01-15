@@ -64,5 +64,6 @@
 *** I can just use the flooding local maxima approach instead and avoid all the above (but we'll see what other problems appear then)
 * Some more random
 ** Maybe outbound ships should also travel on low halite routes to not waste halite?
-
-
+* Repeat ship order assignment as long as there are destination changes?
+** Or do it even better...
+* Paths around opponents make it a lot harder to detect opponent blockers and to counteract them - see if it is a problem and fix it if needed

@@ -11,6 +11,7 @@
         public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
+        public BitMapLayer ForbiddenCellsMap { get; set; }
 
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
         public DataMapLayer<double> HarvestAreaMap { get; private set; }
@@ -18,7 +19,6 @@
 
         public void Calculate()
         {
-            //Logger.WriteMessage("Calculating outbound map.");
             CalculateHarvestAreaMap();
             CalculateOutboundPaths();
         }
@@ -29,13 +29,14 @@
             int mapHeight = HarvestAreaMap.Height;
             var outboundPaths = new DataMapLayer<double>(mapWidth, mapHeight);
             OutboundPaths = outboundPaths;
+            var forbiddenCellsMap = ForbiddenCellsMap;
 
             int estimatedMaxQueueSize = (int)(HarvestAreaMap.CellCount * Math.Log(HarvestAreaMap.CellCount));
             var queue = new DoublePriorityQueue<Position>(estimatedMaxQueueSize);
             foreach (var position in HarvestAreaMap.AllPositions)
             {
                 double value = HarvestAreaMap[position];
-                if (value > 1d)
+                if (value > 1d && !forbiddenCellsMap[position])
                 {
                     queue.Enqueue(-1 * value, position);
                 }
@@ -75,7 +76,8 @@
                 foreach (var neighbour in neighbourArray)
                 {
                     double neighbourValue = outboundPaths[neighbour];
-                    if (nextValue <= neighbourValue)
+                    if (nextValue <= neighbourValue
+                        || forbiddenCellsMap[neighbour])
                     {
                         continue;
                     }

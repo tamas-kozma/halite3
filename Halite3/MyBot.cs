@@ -24,6 +24,7 @@
         private GameInitializationMessage gameInitializationMessage;
         private TurnMessage turnMessage;
         private MyPlayer myPlayer;
+        private Player[] opponentPlayers;
         private DataMapLayer<int> originHaliteMap;
         private DataMapLayer<int> haliteMap;
         private ReturnMap dangerousReturnMap;
@@ -35,7 +36,9 @@
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private PriorityQueue<MyShip, MyShip> shipQueue;
         private BitMapLayer forbiddenCellsMap;
+        private BitMapLayer originForbiddenCellsMap;
         private MapBooster mapBooster;
+        private DataMapLayer<double> originHaliteDoubleMap;
 
         public MyBot(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -76,7 +79,7 @@
                 AssignOrdersToAllShips();
 
                 if (//turnMessage.TurnNumber <= 250 
-                    myPlayer.Ships.Count <= 20
+                    myPlayer.MyShips.Count <= 20
                     && myPlayer.Halite >= GameConstants.ShipCost
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
                 {
@@ -106,7 +109,7 @@
         private void AssignOrdersToAllShips()
         {
             shipQueue.Clear();
-            foreach (var ship in myPlayer.Ships)
+            foreach (var ship in myPlayer.MyShips)
             {
                 Debug.Assert(!ship.HasActionAssigned);
 
@@ -123,7 +126,6 @@
             while (shipQueue.Count > 0)
             {
                 var ship = shipQueue.Dequeue();
-
                 var destinationBefore = ship.Destination;
                 UpdateShipDestination(ship);
 
@@ -195,7 +197,7 @@
                     break;
 
                 case ShipRole.Harvester:
-                    ship.Map = originAdjustedHaliteMap.Values;
+                    ship.Map = originHaliteDoubleMap;
                     ship.MapDirection = 1;
                     break;
 
@@ -229,9 +231,8 @@
                 ship.Destination = optimalDestination;
                 ship.DistanceFromDestination = optimalDestinationDistance;
 
-                if (ship.Role == ShipRole.Outbound && optimalDestinationDistance < 3)
+                if (ship.Role == ShipRole.Outbound && optimalDestinationDistance < tuningSettings.OutboundShipSwitchToOriginMapDistance)
                 {
-                    // TODO: Move to tuningsettings.
                     ship.IsOutboundGettingClose = true;
                 }
             }
@@ -343,6 +344,7 @@
                 int dropoffDistanceDifference = neighbourDropoffDistance - originDropoffDistance;
                 if (dropoffDistanceDifference >= 0)
                 {
+                    // TODO: Can it be the same?!
                     int turnLimit = 2 + dropoffDistanceDifference;
                     int originActualHalite = originHaliteMap[ship.OriginPosition];
                     int remainingAfterTurnLimit = (int)(Math.Pow(1 - GameConstants.ExtractRatio, turnLimit) * originActualHalite);
@@ -418,9 +420,8 @@
                         int candidateMaxDimensionDistance = originHaliteMap.MaxSingleDimensionDistance(candidate, ship.Destination.Value);
                         int bestSoFarMaxDimensionDistance = originHaliteMap.MaxSingleDimensionDistance(bestSoFar, ship.Destination.Value);
                         int difference = Math.Abs(candidateMaxDimensionDistance - bestSoFarMaxDimensionDistance);
-                        if (difference > 4)
+                        if (difference > tuningSettings.OutboundShipAntiSquarePathMinDifference)
                         {
-                            // TODO: Move to tuningsettings.
                             return (candidateMaxDimensionDistance < bestSoFarMaxDimensionDistance);
                         }
                     }
@@ -477,7 +478,7 @@
 
             if (targetPosition == ship.OriginPosition && ship.BlockedTurnCount > 2)
             {
-                if (myPlayer.ShipMap[neighbourhoodInfo.BestPosition] == null)
+                if (myPlayer.MyShipMap[neighbourhoodInfo.BestPosition] == null)
                 {
                     targetPosition = neighbourhoodInfo.BestPosition;
                 }
@@ -575,7 +576,7 @@
 
             if (position != ship.OriginPosition)
             {
-                var blocker = myPlayer.ShipMap[position];
+                var blocker = myPlayer.MyShipMap[position];
                 if (blocker != null)
                 {
                     Debug.Assert(blocker.PushPath != null && blocker.PushPath.Count >= 3 && blocker.PushPath.Last() == ship.OriginPosition, "ship = " + ship + ", blocker = " + blocker + ", push path = " + string.Join(" <- ", blocker.PushPath));
@@ -586,11 +587,11 @@
 
                     Position pushFrom;
                     Position pushTo = pushPath.Pop();
-                    Debug.Assert(pushTo == ship.OriginPosition || myPlayer.ShipMap[pushTo] == null, "Push-to position has unexpected ship (" + myPlayer.ShipMap[pushTo] + ".");
+                    Debug.Assert(pushTo == ship.OriginPosition || myPlayer.MyShipMap[pushTo] == null, "Push-to position has unexpected ship (" + myPlayer.MyShipMap[pushTo] + ".");
                     while (pushPath.Count >= 2)
                     {
                         pushFrom = pushPath.Pop();
-                        var pushedShip = myPlayer.ShipMap[pushFrom];
+                        var pushedShip = myPlayer.MyShipMap[pushFrom];
                         Debug.Assert(pushedShip != null && !pushedShip.HasActionAssigned);
                         ProcessShipOrderCore(pushedShip, pushTo, false);
                         pushTo = pushFrom;
@@ -612,10 +613,11 @@
 
             if (ship.OriginPosition != position)
             {
-                var shipAtOrigin = myPlayer.ShipMap[ship.OriginPosition];
+                var shipAtOrigin = myPlayer.MyShipMap[ship.OriginPosition];
                 if (shipAtOrigin == ship)
                 {
                     myPlayer.ShipMap[ship.OriginPosition] = null;
+                    myPlayer.MyShipMap[ship.OriginPosition] = null;
                 }
                 else
                 {
@@ -624,6 +626,7 @@
                 }
 
                 myPlayer.ShipMap[ship.Position] = ship;
+                myPlayer.MyShipMap[ship.Position] = ship;
             }
             else
             {
@@ -636,10 +639,34 @@
             gameInitializationMessage = haliteEngineInterface.ReadGameInitializationMessage();
             GameConstants.PopulateFrom(gameInitializationMessage.GameConstants);
 
+            string myPlayerId = gameInitializationMessage.MyPlayerId;
             myPlayer = new MyPlayer();
-            myPlayer.Initialize(gameInitializationMessage);
+            opponentPlayers = new Player[gameInitializationMessage.Players.Length - 1];
+            int opponentIndex = 0;
+            foreach (var playerInitializationMessage in gameInitializationMessage.Players)
+            {
+                Player player;
+                if (playerInitializationMessage.PlayerId == myPlayerId)
+                {
+                    player = myPlayer;
+                }
+                else
+                {
+                    player = new Player();
+                    opponentPlayers[opponentIndex] = player;
+                    opponentIndex++;
+                }
+
+                player.Logger = logger;
+                player.Initialize(playerInitializationMessage, gameInitializationMessage.MapWithHaliteAmounts);
+            }
 
             originHaliteMap = new DataMapLayer<int>(gameInitializationMessage.MapWithHaliteAmounts);
+            originHaliteDoubleMap = new DataMapLayer<double>(originHaliteMap.Width, originHaliteMap.Height);
+            foreach (var position in originHaliteMap.AllPositions)
+            {
+                originHaliteDoubleMap[position] = originHaliteMap[position];
+            }
 
             mapWidth = originHaliteMap.Width;
             mapHeight = originHaliteMap.Height;
@@ -660,6 +687,10 @@
             }
 
             myPlayer.Update(turnMessage);
+            foreach (var player in opponentPlayers)
+            {
+                player.Update(turnMessage);
+            }
 
             UpdateHaliteMap(turnMessage);
 
@@ -692,14 +723,10 @@
                 }
             }
 
-            /*foreach (var position in myPlayer.ShipMap.AllPositions)
-            {
-                var ship = myPlayer.ShipMap[position];
-                if (ship != null)
-                {
-                    logger.WriteMessage("At " + position + " found registered " + ship + ".");
-                }
-            }*/
+            originForbiddenCellsMap = new BitMapLayer(forbiddenCellsMap);
+            originReturnMap = GetReturnMap();
+            originAdjustedHaliteMap = GetAdjustedHaliteMap();
+            originOutboundMap = GetOutboundMap();
 
             return true;
         }
@@ -733,7 +760,7 @@
 
             if (!ignoreBlocker)
             {
-                var blocker = myPlayer.ShipMap[position];
+                var blocker = myPlayer.MyShipMap[position];
                 if (blocker != null)
                 {
                     Debug.Assert(blocker != ship && !blocker.HasActionAssigned);
@@ -842,8 +869,8 @@
                     break;
                 }
 
-                Debug.Assert(myPlayer.ShipMap[pusher.OriginPosition] == pusher);
-                var blockerBlocker = myPlayer.ShipMap[position];
+                Debug.Assert(myPlayer.MyShipMap[pusher.OriginPosition] == pusher);
+                var blockerBlocker = myPlayer.MyShipMap[position];
                 if (blockerBlocker != null)
                 {
                     if (position == pusher.OriginPosition)
@@ -1033,7 +1060,8 @@
                     TuningSettings = tuningSettings,
                     Logger = logger,
                     MyPlayer = myPlayer,
-                    MapBooster = mapBooster
+                    MapBooster = mapBooster,
+                    ForbiddenCellsMap = forbiddenCellsMap
                 };
 
                 dangerousReturnMap.Calculate();
@@ -1073,7 +1101,8 @@
                     AdjustedHaliteMap = GetAdjustedHaliteMap(),
                     MyPlayer = myPlayer,
                     Logger = logger,
-                    MapBooster = mapBooster
+                    MapBooster = mapBooster,
+                    ForbiddenCellsMap = forbiddenCellsMap // TODO: Test using originForbiddenCellsMap here once blocked ships are implemented.
                 };
 
                 dangerousOutboundMap.Calculate();
@@ -1087,14 +1116,11 @@
             foreach (var cellUpdateMessage in turnMessage.MapUpdates)
             {
                 originHaliteMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
+                originHaliteDoubleMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
             }
 
             haliteMap = new DataMapLayer<int>(originHaliteMap);
             ResetHaliteDependentState();
-
-            originReturnMap = GetReturnMap();
-            originAdjustedHaliteMap = GetAdjustedHaliteMap();
-            originOutboundMap = GetOutboundMap();
         }
 
         [Conditional("DEBUG")]
@@ -1108,21 +1134,21 @@
             PaintMap(dangerousOutboundMap.OutboundPaths, "outboundPaths");
         }
 
-        [Conditional("DEBUG")]
+        //[Conditional("DEBUG")]
         private void PaintMap(MapLayer<int> map, string name)
         {
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }
 
-        [Conditional("DEBUG")]
+        //[Conditional("DEBUG")]
         private void PaintMap(MapLayer<double> map, string name)
         {
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }
 
-        [Conditional("DEBUG")]
+        //[Conditional("DEBUG")]
         private void PrintSvg(string svg, string name)
         {
             File.WriteAllText(name + "-" + myPlayer.Id + ".svg", svg);

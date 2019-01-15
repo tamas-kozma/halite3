@@ -12,6 +12,7 @@
         public MyPlayer MyPlayer { get; set; }
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
+        public BitMapLayer ForbiddenCellsMap { get; set; }
 
         public DataMapLayer<double> PathCosts { get; private set; }
         public DataMapLayer<ReturnMapCellData> CellData { get; private set; }
@@ -38,6 +39,8 @@
             }
 
             var mapBooster = MapBooster;
+            var forbiddenCellsMap = ForbiddenCellsMap;
+            var forbiddenCellData = new ReturnMapCellData(int.MaxValue, int.MaxValue);
             while (queue.Count > 0)
             {
                 var position = queue.Dequeue();
@@ -45,6 +48,12 @@
                 var neighbours = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbours)
                 {
+                    if (forbiddenCellsMap[neighbour])
+                    {
+                        cellDataMap[neighbour] = forbiddenCellData;
+                        continue;
+                    }
+
                     double oldNeighbourCost = pathCosts[neighbour];
                     int neighbourHalite = HaliteMap[neighbour];
                     var newNeighbourCellData = new ReturnMapCellData(cellData.Distance + 1, cellData.SumHalite + neighbourHalite);

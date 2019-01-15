@@ -2,12 +2,9 @@
 
 namespace Halite3.hlt
 {
-    public sealed class MyShip
+    public sealed class MyShip : Ship
     {
-        public string Id { get; set; }
         public Position OriginPosition { get; set; }
-        public Position Position { get; set; }
-        public int Halite { get; set; }
         public ShipRole Role { get; set; }
         public bool HasActionAssigned { get; set; }
         public Position? Destination { get; set; }

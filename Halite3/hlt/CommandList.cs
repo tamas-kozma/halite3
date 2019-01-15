@@ -19,7 +19,7 @@
                 SpawnShip();
             }
 
-            foreach (var ship in player.Ships)
+            foreach (var ship in player.MyShips)
             {
                 Move(ship.Id, DirectionFromPositions(ship.OriginPosition, ship.Position));
             }
