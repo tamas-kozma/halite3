@@ -2,23 +2,13 @@
 {
     public struct ReturnMapCellData
     {
-        private readonly int distance;
-        private readonly int sumHalite;
+        public readonly int Distance;
+        public readonly int SumHalite;
 
         public ReturnMapCellData(int distance, int sumHalite)
         {
-            this.distance = distance;
-            this.sumHalite = sumHalite;
-        }
-
-        public int Distance
-        {
-            get { return distance; }
-        }
-
-        public int SumHalite
-        {
-            get { return sumHalite; }
+            Distance = distance;
+            SumHalite = sumHalite;
         }
 
         public override string ToString()

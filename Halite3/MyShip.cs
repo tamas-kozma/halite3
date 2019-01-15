@@ -4,6 +4,11 @@ namespace Halite3
 {
     public sealed class MyShip : Ship
     {
+        public MyShip(MyPlayer myPlayer)
+            : base(myPlayer)
+        {
+        }
+
         public Position OriginPosition { get; set; }
         public ShipRole Role { get; set; }
         public bool HasActionAssigned { get; set; }

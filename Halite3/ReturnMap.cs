@@ -1,7 +1,6 @@
 ﻿namespace Halite3
 {
     using System.Diagnostics;
-    using System.Linq;
 
     public sealed class ReturnMap
     {
@@ -41,6 +40,7 @@
             var mapBooster = MapBooster;
             var forbiddenCellsMap = ForbiddenCellsMap;
             var forbiddenCellData = new ReturnMapCellData(int.MaxValue, int.MaxValue);
+            var haliteMap = HaliteMap;
             while (queue.Count > 0)
             {
                 var position = queue.Dequeue();
@@ -55,7 +55,9 @@
                     }
 
                     double oldNeighbourCost = pathCosts[neighbour];
-                    int neighbourHalite = HaliteMap[neighbour];
+
+                    // Adding plus one to ensure that path values strictly increase as we move away from a dropoff.
+                    int neighbourHalite = haliteMap[neighbour] + 1;
                     var newNeighbourCellData = new ReturnMapCellData(cellData.Distance + 1, cellData.SumHalite + neighbourHalite);
                     double newNeighbourCost = GetPathCost(neighbour, newNeighbourCellData);
                     if (oldNeighbourCost <= newNeighbourCost)

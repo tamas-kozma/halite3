@@ -12,7 +12,7 @@
             int maxValue = 1;
             foreach (int value in map)
             {
-                if (value > maxValue)
+                if (value != int.MaxValue && value > maxValue)
                 {
                     maxValue = value;
                 }
@@ -26,7 +26,7 @@
             double maxValue = 1;
             foreach (double value in map)
             {
-                if (value > maxValue)
+                if (value != double.MaxValue && value > maxValue)
                 {
                     maxValue = value;
                 }
@@ -51,7 +51,7 @@
         {
             if (maxValue < 1)
             {
-                throw new ArgumentOutOfRangeException(nameof(maxValue));
+                throw new ArgumentOutOfRangeException(nameof(maxValue), "MapLayerToSvg maxValue = " + maxValue);
             }
 
             var builder = new StringBuilder();

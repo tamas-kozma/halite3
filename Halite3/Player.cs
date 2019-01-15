@@ -129,7 +129,12 @@
 
         protected virtual Ship HandleNewShip(ShipMessage shipMessage)
         {
-            return new Ship();
+            return new Ship(this);
+        }
+
+        public override string ToString()
+        {
+            return "Player " + Id;
         }
     }
 }

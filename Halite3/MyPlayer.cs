@@ -24,7 +24,7 @@
         {
             Debug.Assert(Halite >= GameConstants.ShipCost && NewShip == null);
 
-            NewShip = new MyShip()
+            NewShip = new MyShip(this)
             {
                 Halite = 0,
                 Id = null,
@@ -37,6 +37,11 @@
         {
             UpdateDropoffDistances();
             throw new NotImplementedException();
+        }
+
+        public override string ToString()
+        {
+            return "me";
         }
 
         protected override void HandleDropoffMessages(PlayerUpdateMessage playerMessage)

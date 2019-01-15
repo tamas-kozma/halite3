@@ -35,10 +35,13 @@
         private OutboundMap originOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
+        private BitMapLayer permanentForbiddenCellsMap;
         private BitMapLayer originForbiddenCellsMap;
         private MapBooster mapBooster;
         private DataMapLayer<double> originHaliteDoubleMap;
         private bool areHaliteBasedMapsDirty;
+        private int blockedShipCount;
+        private DataMapLayer<Ship> allOpponentShipMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -453,6 +456,17 @@
         // TODO: Implement. What I have here now is just temporary.
         private void AssignOrderToBlockedShip(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
         {
+            Debug.Assert(!ship.HasActionAssigned);
+            Debug.Assert(neighbourhoodInfo.BestPosition != ship.OriginPosition);
+            /*
+            var blockerOpponentShip = allOpponentShipMap[neighbourhoodInfo.BestPosition];
+            bool isBlockedByOpponent = blockerOpponentShip;*/
+
+            ProcessShipOrder(ship, ship.OriginPosition, true);
+        }
+
+        private void AssignOrderToBlockedShipOld(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
+        {
             var targetPosition = ship.OriginPosition;
             if (ship.Role != ShipRole.Inbound)
             {
@@ -602,7 +616,24 @@
             ship.Position = position;
             forbiddenCellsMap[position] = true;
             ship.HasActionAssigned = true;
-            ship.BlockedTurnCount = (isBlocked) ? ship.BlockedTurnCount + 1 : 0;
+            if (isBlocked)
+            {
+                if (ship.BlockedTurnCount == 0)
+                {
+                    blockedShipCount++;
+                }
+
+                ship.BlockedTurnCount++;
+            }
+            else
+            {
+                if (ship.BlockedTurnCount > 0)
+                {
+                    blockedShipCount--;
+                }
+
+                ship.BlockedTurnCount = 0;
+            }
 
             if (ship.OriginPosition != position)
             {
@@ -665,7 +696,9 @@
             mapHeight = originHaliteMap.Height;
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
+            permanentForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
+            allOpponentShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
 
             haliteEngineInterface.Ready(Name);
         }
@@ -678,49 +711,46 @@
                 return false;
             }
 
-            myPlayer.Update(turnMessage);
-            foreach (var player in opponentPlayers)
-            {
-                player.Update(turnMessage);
-            }
-
+            UpdatePlayers();
             UpdateHaliteMap(turnMessage);
+            UpdateForbiddenCellsMap();
 
-            forbiddenCellsMap.Clear();
-            
-            // TODO: Mark also dropoffs?
-            // TODO: Don't mark ships close to us.
-            MarkOpponentShipyardsAsForbidden();
-            var opponentShips = turnMessage.PlayerUpdates
-                .Where(message => message.PlayerId != myPlayer.Id)
-                .SelectMany(message => message.Ships);
-
-            var dangerousPositionArray = new Position[4];
-            foreach (var shipMessage in opponentShips)
-            {
-                var shipPosition = shipMessage.Position;
-                forbiddenCellsMap[shipPosition] = true;
-
-                forbiddenCellsMap.GetNeighbours(shipPosition, dangerousPositionArray);
-                int haliteAtShipCell = originHaliteMap[shipPosition];
-                bool isHarvester = (shipMessage.Halite > 150 && shipMessage.Halite < 750);
-                foreach (var position in dangerousPositionArray)
-                {
-                    if (isHarvester && originHaliteMap[position] < haliteAtShipCell)
-                    {
-                        continue;
-                    }
-
-                    forbiddenCellsMap[position] = true;
-                }
-            }
-
-            originForbiddenCellsMap = new BitMapLayer(forbiddenCellsMap);
             originReturnMap = GetReturnMap();
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
 
             return true;
+        }
+
+        private void UpdatePlayers()
+        {
+            foreach (var player in opponentPlayers)
+            {
+                foreach (var ship in player.Ships)
+                {
+                    allOpponentShipMap[ship.Position] = null;
+                }
+            }
+
+            myPlayer.Update(turnMessage);
+            foreach (var player in opponentPlayers)
+            {
+                player.Update(turnMessage);
+
+                foreach (var ship in player.Ships)
+                {
+                    allOpponentShipMap[ship.Position] = ship;
+                }
+            }
+
+            foreach (var shipwreck in myPlayer.Shipwrecks)
+            {
+                var myShipWreck = shipwreck as MyShip;
+                if (myShipWreck.BlockedTurnCount > 0)
+                {
+                    blockedShipCount--;
+                }
+            }
         }
 
         private bool IsForbidden(MyShip ship, Position position, bool ignoreBlocker = false)
@@ -893,19 +923,6 @@
             return false;
         }
 
-        private void MarkOpponentShipyardsAsForbidden()
-        {
-            foreach (var playerMessage in gameInitializationMessage.Players)
-            {
-                if (playerMessage.PlayerId == myPlayer.Id)
-                {
-                    continue;
-                }
-
-                forbiddenCellsMap[playerMessage.ShipyardPosition] = true;
-            }
-        }
-
         private void AdjustHaliteForExtraction(MyShip ship)
         {
             int halite = haliteMap[ship.Position];
@@ -1063,7 +1080,7 @@
                     Logger = logger,
                     MyPlayer = myPlayer,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = forbiddenCellsMap
+                    ForbiddenCellsMap = permanentForbiddenCellsMap
                 };
 
                 dangerousReturnMap.Calculate();
@@ -1089,7 +1106,8 @@
                     TurnMessage = turnMessage,
                     ReturnMap = GetReturnMap(),
                     Logger = logger,
-                    MapBooster = mapBooster
+                    MapBooster = mapBooster,
+                    ForbiddenCellsMap = permanentForbiddenCellsMap
                 };
 
                 dangerousAdjustedHaliteMap.Calculate();
@@ -1114,7 +1132,7 @@
                     MyPlayer = myPlayer,
                     Logger = logger,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = forbiddenCellsMap // TODO: Test using originForbiddenCellsMap here once blocked ships are implemented.
+                    ForbiddenCellsMap = permanentForbiddenCellsMap
                 };
 
                 dangerousOutboundMap.Calculate();
@@ -1133,6 +1151,69 @@
 
             haliteMap = new DataMapLayer<int>(originHaliteMap);
             ResetHaliteDependentState();
+        }
+
+        private void UpdateForbiddenCellsMap()
+        {
+            forbiddenCellsMap.Clear();
+
+            var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
+            foreach (var player in opponentPlayers)
+            {
+                foreach (var dropoffPosition in player.DropoffPositions)
+                {
+                    permanentForbiddenCellsMap.GetDiscCells(dropoffPosition, tuningSettings.MapOpponentDropoffNoGoZoneRadius, noGoDisc);
+                    foreach (var position in noGoDisc)
+                    {
+                        forbiddenCellsMap[position] = true;
+                        permanentForbiddenCellsMap[position] = true;
+                    }
+
+                    //logger.LogDebug("Dropoff of " + player + " at " + dropoffPosition + " has the no-go zone: " + string.Join(", ", noGoDisc));
+                }
+
+                foreach (var ship in player.Ships)
+                {
+                    var shipPosition = ship.Position;
+                    var shipOwner = ship.Owner;
+                    int shipMyDropoffdistance = myPlayer.DistanceFromDropoffMap[ship.Position];
+                    if (myPlayer.DistanceFromDropoffMap[shipPosition] <= tuningSettings.MapOpponentShipInvisibilityRadius)
+                    {
+                        logger.LogDebug(ship + " belonging to " + shipOwner + " came too close (" + shipMyDropoffdistance + ") and thus became invisible.");
+                        continue;
+                    }
+
+                    forbiddenCellsMap[ship.Position] = true;
+
+                    var shipNeighbourArray = mapBooster.GetNeighbours(shipPosition);
+                    int haliteAtShipCell = originHaliteMap[shipPosition];
+                    int shipOwnerDropoffdistance = shipOwner.DistanceFromDropoffMap[ship.Position];
+                    bool isHarvester = (ship.Halite >= tuningSettings.OpponentShipLikelyHarvesterMinHalite
+                        && ship.Halite <= tuningSettings.OpponentShipLikelyHarvesterMaxHalite);
+
+                    foreach (var position in shipNeighbourArray)
+                    {
+                        if (isHarvester)
+                        {
+                            int haliteAtNeighbour = originHaliteMap[position];
+                            double haliteRatio = haliteAtNeighbour / (double)haliteAtShipCell;
+                            if (haliteRatio <= tuningSettings.OpponentShipLikelyHarvesterMoveMaxHaliteRatio)
+                            {
+                                int neighbourOpponentDropoffDistance = shipOwner.DistanceFromDropoffMap[position];
+                                if (neighbourOpponentDropoffDistance >= shipOwnerDropoffdistance)
+                                {
+                                    logger.LogDebug("Opponent ship " + ship.Id + " is assumed to be a harvester that will not move to " + position + ".");
+                                    continue;
+                                }
+                            }
+                        }
+
+                        forbiddenCellsMap[position] = true;
+                    }
+                }
+            }
+
+            originForbiddenCellsMap = new BitMapLayer(forbiddenCellsMap);
         }
 
         [Conditional("DEBUG")]

@@ -76,8 +76,7 @@
                 foreach (var neighbour in neighbourArray)
                 {
                     double neighbourValue = outboundPaths[neighbour];
-                    if (nextValue <= neighbourValue
-                        || forbiddenCellsMap[neighbour])
+                    if (nextValue <= neighbourValue || forbiddenCellsMap[neighbour])
                     {
                         continue;
                     }

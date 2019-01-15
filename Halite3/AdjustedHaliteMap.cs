@@ -13,6 +13,7 @@
         public ReturnMap ReturnMap { get; set; }
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
+        public BitMapLayer ForbiddenCellsMap { get; set; }
 
         public DataMapLayer<double> Values { get; private set; }
 
@@ -26,6 +27,12 @@
             Values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
             foreach (var position in BaseHaliteMap.AllPositions)
             {
+                if (ForbiddenCellsMap[position])
+                {
+                    Values[position] = 0;
+                    continue;
+                }
+
                 int halite = BaseHaliteMap[position];
                 int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
                 double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
@@ -45,20 +52,6 @@
                 .Select(shipMessage => shipMessage.Position);
 
             AdjustHaliteInMultipleDiscs(opponentHarvesterPositions, TuningSettings.OutboundMapOpponentHarvesterBonusRadius, TuningSettings.OutboundMapOpponentHarvesterBonusMultiplier);
-
-            var opponentPlayerIds = GameInitializationMessage.Players
-                .Select(message => message.PlayerId)
-                .Where(id => id != myPlayerId);
-
-            var opponentDropoffPositions = opponentPlayerIds.SelectMany(playerId =>
-                opponentPlayerUpdateMessages
-                    .Single(message => message.PlayerId == playerId).Dropoffs
-                    .Select(message => message.Position)
-                .Concat(new Position[] {
-                    GameInitializationMessage.Players
-                        .Single(message => message.PlayerId == playerId).ShipyardPosition }));
-
-            AdjustHaliteInMultipleDiscs(opponentDropoffPositions, TuningSettings.OutboundMapOpponentDropoffPenaltyRadius, TuningSettings.OutboundMapOpponentDropoffPenaltyMultiplier);
         }
 
         private void AdjustHaliteInMultipleDiscs(IEnumerable<Position> positions, int radius, double multiplier)

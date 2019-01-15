@@ -72,3 +72,4 @@
 * Maybe when there will be real competition it will be better to go further for more halite?
 * Limit max halite in sea to around 2000
 ** More than that will attract ships from far away, bu they will never make it there in time
+* Maybe it didn't work because of the forbidden cells in the maps? TODO: From here...
