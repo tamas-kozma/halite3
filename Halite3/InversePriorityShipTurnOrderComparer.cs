@@ -45,13 +45,15 @@
                 }
             }
 
-            aspectComparisonResult = y.Halite - x.Halite;
+            return x.Id.CompareTo(y.Id);
+
+            /* aspectComparisonResult = y.Halite - x.Halite;
             if (aspectComparisonResult != 0)
             {
                 return aspectComparisonResult;
             }
 
-            return 0;
+            return 0; */
         }
     }
 }

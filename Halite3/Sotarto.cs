@@ -17,6 +17,7 @@
         private readonly TuningSettings tuningSettings;
 
         private readonly MapLayerPainter painter;
+        private readonly List<MyShip> shipQueue;
 
         private int mapWidth;
         private int mapHeight;
@@ -33,11 +34,11 @@
         private AdjustedHaliteMap originAdjustedHaliteMap;
         private OutboundMap originOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
-        private PriorityQueue<MyShip, MyShip> shipQueue;
         private BitMapLayer forbiddenCellsMap;
         private BitMapLayer originForbiddenCellsMap;
         private MapBooster mapBooster;
         private DataMapLayer<double> originHaliteDoubleMap;
+        private bool areHaliteBasedMapsDirty;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -48,6 +49,8 @@
 
             painter = new MapLayerPainter();
             painter.CellPixelSize = 8;
+
+            shipQueue = new List<MyShip>(100);
         }
 
         public void Play()
@@ -97,69 +100,81 @@
                     ProcessShipOrder(ship, ship.OriginPosition);
                 }
 
-                EnqueueShipForOrders(ship);
+                shipQueue.Add(ship);
             }
 
-            while (shipQueue.Count > 0)
+            ResetHaliteDependentState();
+            foreach (var ship in shipQueue)
             {
-                var ship = shipQueue.Dequeue();
-                var destinationBefore = ship.Destination;
                 UpdateShipDestination(ship);
+            }
 
-                if (!ship.HasActionAssigned)
+            Debug.Assert(!areHaliteBasedMapsDirty);
+            while (shipQueue.Count != 0)
+            {
+                bool haliteChanged = areHaliteBasedMapsDirty;
+                //logger.LogDebug("haliteChanged = " + haliteChanged);
+
+                var bestShip = shipQueue[0];
+                int bestIndex = 0;
+                for (int i = 1; i < shipQueue.Count; i++)
                 {
-                    TryAssignOrderToShip(ship);
-                    if (!ship.HasActionAssigned)
+                    var ship = shipQueue[i];
+                    if (haliteChanged && ship.Role == ShipRole.Outbound)
                     {
-                        logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", requested retry.");
-                        EnqueueShipForOrders(ship);
+                        UpdateShipDestination(ship);
+                    }
+
+                    if (shipTurnOrderComparer.Compare(ship, bestShip) < 0)
+                    {
+                        bestShip = ship;
+                        bestIndex = i;
+                    }
+                }
+
+                if (!bestShip.HasActionAssigned)
+                {
+                    TryAssignOrderToShip(bestShip);
+                    UpdateShipDestination(bestShip);
+
+                    if (!bestShip.HasActionAssigned)
+                    {
+                        logger.LogDebug("Ship " + bestShip.Id + " at " + bestShip.OriginPosition + ", with role " + bestShip.Role + ", requested retry.");
                         continue;
                     }
                 }
 
-                Debug.Assert(ship.HasActionAssigned);
-                var roleBefore = ship.Role;
-                UpdateShipDestination(ship);
-                if (ship.Destination.HasValue && ship.DistanceFromDestination == 0)
+                //logger.LogDebug(bestShip.ToString());
+
+                if (bestShip.Destination.HasValue && bestShip.DistanceFromDestination == 0)
                 {
-                    if (ship.Role == ShipRole.Outbound)
+                    if (bestShip.Role == ShipRole.Outbound)
                     {
                         // Doing this early so that someone starting to harvest nearby doesn't prompt this ship to keep going unnecessarily.
                         // No similar problem with harvesters, as those are not affected by simulated halite changes very much.
-                        SetShipRole(ship, ShipRole.Harvester);
+                        SetShipRole(bestShip, ShipRole.Harvester);
                     }
 
-                    if (ship.Role == ShipRole.Inbound)
+                    if (bestShip.Role == ShipRole.Inbound)
                     {
                         // With this the inbound handler code doesn't need a special case for a ship that got pushed away from a dropoff.
-                        SetShipRole(ship, ShipRole.Outbound);
+                        SetShipRole(bestShip, ShipRole.Outbound);
                     }
                 }
 
-                bool hasDestinationChanged = destinationBefore != ship.Destination;
-                bool hasRoleChanged = roleBefore != ship.Role;
-                logger.LogDebug("Done with ship " + ship.Id + " - " + ((hasDestinationChanged)
-                    ? "!!! changed destination from" + destinationBefore + " to " + ship.Destination
-                    : "still heading towards " + ship.Destination)
-                    + ((hasRoleChanged) ? " - ! changed role from " + roleBefore + " to " + ship.Role + "." : "."));
-
-                if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
+                if (bestShip.Role == ShipRole.Harvester || bestShip.Role == ShipRole.Outbound)
                 {
-                    AdjustHaliteForSimulatedHarvest(ship);
+                    AdjustHaliteForSimulatedHarvest(bestShip);
                 }
+
+                if (bestIndex != shipQueue.Count - 1)
+                {
+                    shipQueue[bestIndex] = shipQueue[shipQueue.Count - 1];
+                    shipQueue[shipQueue.Count - 1] = bestShip;
+                }
+
+                shipQueue.RemoveAt(shipQueue.Count - 1);
             }
-        }
-
-        private void EnqueueShipForOrders(MyShip ship)
-        {
-            Debug.Assert(ship.OriginPosition == ship.Position);
-
-            if (!ship.Destination.HasValue)
-            {
-                UpdateShipDestination(ship);
-            }
-
-            shipQueue.Enqueue(ship, ship);
         }
 
         private void SetShipMap(MyShip ship)
@@ -191,27 +206,28 @@
 
         private void UpdateShipDestination(MyShip ship)
         {
+            SetShipMap(ship);
             if (ship.Map == null)
             {
-                SetShipMap(ship);
+                return;
             }
 
-            if (ship.Map != null)
+            int maxDistance = int.MaxValue;
+            if (ship.Role == ShipRole.Harvester)
             {
-                int maxDistance = int.MaxValue;
-                if (ship.Role == ShipRole.Harvester)
-                {
-                    maxDistance = 1;
-                }
+                maxDistance = 1;
+            }
 
-                (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.Position, ship.Map, ship.MapDirection, maxDistance);
-                ship.Destination = optimalDestination;
-                ship.DistanceFromDestination = optimalDestinationDistance;
+            (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.Position, ship.Map, ship.MapDirection, maxDistance);
+            ship.Destination = optimalDestination;
+            ship.DistanceFromDestination = optimalDestinationDistance;
 
-                if (ship.Role == ShipRole.Outbound && optimalDestinationDistance < tuningSettings.OutboundShipSwitchToOriginMapDistance)
-                {
-                    ship.IsOutboundGettingClose = true;
-                }
+            if (ship.Role == ShipRole.Outbound 
+                && optimalDestinationDistance < tuningSettings.OutboundShipSwitchToOriginMapDistance
+                && !ship.IsOutboundGettingClose)
+            {
+                ship.IsOutboundGettingClose = true;
+                UpdateShipDestination(ship);
             }
         }
 
@@ -650,7 +666,6 @@
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
-            shipQueue = new PriorityQueue<MyShip, MyShip>(100, shipTurnOrderComparer);
 
             haliteEngineInterface.Ready(Name);
         }
@@ -895,11 +910,13 @@
         {
             int halite = haliteMap[ship.Position];
             int extracted = GetExtractedAmountRegardingCapacity(halite, ship);
-            halite -= extracted;
-            haliteMap[ship.Position] = halite;
-            ship.Halite += extracted;
-
-            ResetHaliteDependentState();
+            if (extracted != 0)
+            {
+                halite -= extracted;
+                haliteMap[ship.Position] = halite;
+                ship.Halite += extracted;
+                areHaliteBasedMapsDirty = true;
+            }
         }
 
         private int GetExtractedAmountIgnoringCapacity(int halite)
@@ -968,6 +985,8 @@
                 haliteMap[position] = localHalite;
                 haliteInShip += extractedAmount;
             }
+
+            areHaliteBasedMapsDirty = true;
         }
 
         public static void Main(string[] args)
@@ -1025,10 +1044,16 @@
             dangerousReturnMap = null;
             dangerousAdjustedHaliteMap = null;
             dangerousOutboundMap = null;
+            areHaliteBasedMapsDirty = false;
         }
 
         private ReturnMap GetReturnMap()
         {
+            if (areHaliteBasedMapsDirty)
+            {
+                ResetHaliteDependentState();
+            }
+
             if (dangerousReturnMap == null)
             {
                 dangerousReturnMap = new ReturnMap()
@@ -1049,6 +1074,11 @@
 
         private AdjustedHaliteMap GetAdjustedHaliteMap()
         {
+            if (areHaliteBasedMapsDirty)
+            {
+                ResetHaliteDependentState();
+            }
+
             if (dangerousAdjustedHaliteMap == null)
             {
                 dangerousAdjustedHaliteMap = new AdjustedHaliteMap()
@@ -1070,6 +1100,11 @@
 
         private OutboundMap GetOutboundMap()
         {
+            if (areHaliteBasedMapsDirty)
+            {
+                ResetHaliteDependentState();
+            }
+
             if (dangerousOutboundMap == null)
             {
                 dangerousOutboundMap = new OutboundMap()
