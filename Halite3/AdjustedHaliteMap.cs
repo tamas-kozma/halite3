@@ -25,6 +25,7 @@
         private void CalculateAdjustedHaliteMap()
         {
             Values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
+            double maxHalite = TuningSettings.AdjustedHaliteMapMaxHalite;
             foreach (var position in BaseHaliteMap.AllPositions)
             {
                 if (ForbiddenCellsMap[position])
@@ -36,7 +37,7 @@
                 int halite = BaseHaliteMap[position];
                 int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
                 double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
-                Values[position] = Math.Max(halite - lostHalite, 0);
+                Values[position] = Math.Min(maxHalite, Math.Max(halite - lostHalite, 0));
             }
 
             string myPlayerId = GameInitializationMessage.MyPlayerId;

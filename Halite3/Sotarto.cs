@@ -34,6 +34,8 @@
         private ReturnMap originReturnMap;
         private AdjustedHaliteMap originAdjustedHaliteMap;
         private OutboundMap originOutboundMap;
+        private OutboundMap earlyGameOutboundMap;
+        private OutboundMap earlyGameOriginOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
         private BitMapLayer permanentForbiddenCellsMap;
@@ -44,6 +46,7 @@
         private int blockedShipCount;
         private DataMapLayer<Ship> allOpponentShipMap;
         private DataMapLayer<List<MyShip>> turnPredictionMap;
+        private int earlyGameShipCount;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -104,6 +107,18 @@
                 {
                     logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + " has not enough halite to move (" + ship.Halite + " vs " + moveCost + ").");
                     ProcessShipOrder(ship, ship.OriginPosition);
+                }
+
+                ship.IsBlockedHarvesterTryingHarder = false;
+                ship.IsBlockedOutboundTurnedHarvester = false;
+
+                if (myPlayer.TotalReturnedHalite == 0
+                    && ship.Position == myPlayer.ShipyardPosition 
+                    && ship.Role == ShipRole.Outbound
+                    && !ship.IsEarlyGameShip)
+                {
+                    earlyGameShipCount++;
+                    ship.IsEarlyGameShip = true;
                 }
 
                 shipQueue.Add(ship);
@@ -198,7 +213,31 @@
             {
                 case ShipRole.Outbound:
                     // Prevents infinite Outbound <-> Harverster transitions due to map differences.
-                    var outboundMap = (ship.IsOutboundGettingClose) ? originOutboundMap : GetOutboundMap();
+                    OutboundMap outboundMap;
+                    if (ship.IsOutboundGettingClose)
+                    {
+                        if (ship.IsEarlyGameShip)
+                        {
+                            Debug.Assert(earlyGameOriginOutboundMap != null);
+                            outboundMap = earlyGameOriginOutboundMap;
+                        }
+                        else
+                        {
+                            outboundMap = originOutboundMap;
+                        }
+                    }
+                    else
+                    {
+                        if (ship.IsEarlyGameShip)
+                        {
+                            outboundMap = GetOutboundMap(true);
+                        }
+                        else
+                        {
+                            outboundMap = GetOutboundMap();
+                        }
+                    }
+
                     ship.Map = outboundMap.OutboundPaths;
                     ship.MapDirection = 1;
                     break;
@@ -248,6 +287,12 @@
         private void SetShipRole(MyShip ship, ShipRole role)
         {
             logger.LogDebug(ship + " changes role to " + role + ".");
+            if (ship.IsEarlyGameShip && role == ShipRole.Inbound)
+            {
+                ship.IsEarlyGameShip = false;
+                earlyGameShipCount--;
+            }
+
             ship.Role = role;
             ship.Map = null;
             ship.Destination = null;
@@ -308,6 +353,18 @@
 
         private void TryAssignOrderToHarvester(MyShip ship)
         {
+            if (ship.IsEarlyGameShip)
+            {
+                // TODO: 800
+                int haliteLostOnTheWay = (int)(originReturnMap.CellData[ship.OriginPosition].SumHalite * GameConstants.MoveCostRatio);
+                int minHaliteToReturn = 800 + haliteLostOnTheWay + 5;
+                if (ship.Halite >= minHaliteToReturn)
+                {
+                    SetShipRole(ship, ShipRole.Inbound);
+                    return;
+                }
+            }
+
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
 
             // Handles the case when there's too little halite left in the neighbourhood.
@@ -426,7 +483,11 @@
             }
 
             double haliteRatio = originHalite / neighbourHalite;
-            return (haliteRatio < tuningSettings.HarvesterMoveThresholdHaliteRatio);
+            double threshold = (ship.IsBlockedHarvesterTryingHarder) 
+                ? tuningSettings.HarvesterBlockedMoveThresholdHaliteRatio 
+                : tuningSettings.HarvesterMoveThresholdHaliteRatio;
+
+            return (haliteRatio < threshold);
         }
 
         private bool IsHarvesterOverflowWithinLimits(int extractable, int localAvailableCapacity)
@@ -483,51 +544,46 @@
             ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
         }
 
-        // TODO: Implement. What I have here now is just temporary.
         private void AssignOrderToBlockedShip(MyShip ship, NeighbourhoodInfo neighbourhoodInfo)
         {
             Debug.Assert(!ship.HasActionAssigned);
             Debug.Assert(neighbourhoodInfo.BestPosition != ship.OriginPosition);
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
-            var targetPosition = ship.OriginPosition;
+            if (ship.Role == ShipRole.Outbound)
+            {
+                if (ship.Destination.HasValue && ship.DistanceFromDestination == 1 
+                    && !ship.IsBlockedOutboundTurnedHarvester)
+                {
+                    ship.IsBlockedOutboundTurnedHarvester = true;
+                    SetShipRole(ship, ShipRole.Harvester);
+                    return;
+                }
+            }
 
-            // TODO: I don't want to do it like this.
-            // Harvesters don't often get blocked.
             if (ship.Role == ShipRole.Harvester)
             {
-                // Initially it will try standing still.
-                if (ship.BlockedTurnCount > 0)
+                // It is an opponent that is blocking.
+                if (originForbiddenCellsMap[desiredNeighbour] && myPlayer.ShipMap[desiredNeighbour] == null)
                 {
-                    // If not blocked by an opponent, then it will wait until my other ship goes away.
-                    if (originForbiddenCellsMap[desiredNeighbour])
+                    if (!ship.IsBlockedHarvesterTryingHarder)
                     {
-                        var blockerOpponentShip = allOpponentShipMap[desiredNeighbour];
+                        ship.IsBlockedHarvesterTryingHarder = true;
+                        return;
+                    }
 
-                        // If the opponent ship is standing right next to it, on the desired cell, then it will either go away eventually,
-                        // or harvest it, so that it will be less desirable (unless the enemy is stupid, of course, in which case the
-                        // refugee logic will kick in and save the day).
-                        if (blockerOpponentShip == null)
-                        {
-                            // TODO
-                            // Now we know that it is an opponent that's blocking us, and that
-                            targetPosition = desiredNeighbour;
-                        }
+                    // No opponent ship is currently there.
+                    // To that if it is there, but predicted to be moving away, then the spot will not be forbidden.
+                    if (allOpponentShipMap[desiredNeighbour] == null)
+                    {
+                        // Geronimo!
+                        ProcessShipOrder(ship, desiredNeighbour, false);
+                        return;
                     }
                 }
             }
-            else
-            {
-                //logger.LogError("Blocked: " + ship + ", BANP=" + neighbourhoodInfo.BestAllowedNeighbourPosition + ", BANV=" + neighbourhoodInfo.BestAllowedNeighbourValue + ", OV=" + neighbourhoodInfo.OriginValue + "");
 
-                if (random.Next(3) == 0 && neighbourhoodInfo.NullableBestAllowedNeighbourPosition.HasValue)
-                {
-                    targetPosition = neighbourhoodInfo.NullableBestAllowedNeighbourPosition.Value;
-                    logger.LogError("Blocked " + ship + " moves to suboptimal " + targetPosition + " (" + neighbourhoodInfo.BestAllowedNeighbourValue + ") from " + ship.OriginPosition + " (" + neighbourhoodInfo.OriginValue + ").");
-                }
-            }
-
-            ProcessShipOrder(ship, targetPosition, true);
+            ProcessShipOrder(ship, ship.OriginPosition, true);
         }
 
         private void AssignOrderToBlockedShipOld(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
@@ -878,6 +934,7 @@
             originReturnMap = GetReturnMap();
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
+            earlyGameOriginOutboundMap = (earlyGameShipCount != 0) ? GetOutboundMap(true) : null;
 
             return true;
         }
@@ -912,6 +969,11 @@
                 }
 
                 ClearDesiredNextPosition(myShipWreck);
+
+                if (myShipWreck.IsEarlyGameShip)
+                {
+                    earlyGameShipCount--;
+                }
             }
         }
 
@@ -920,27 +982,20 @@
             Debug.Assert(!ship.HasActionAssigned 
                 && originHaliteMap.WraparoundDistance(ship.OriginPosition, position) == 1);
 
+            if (opponentPlayers.Length == 1)
+            {
+                // Yes, there will be crashes, but we'll lose the same, so I'll not get behind because of that.
+                // And being bold in general sounds like a good idea.
+                if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
+                {
+                    return false;
+                }
+            }
+
             if (forbiddenCellsMap[position])
             {
                 return true;
             }
-
-            // TODO: Doing it like the below code does leads to too much complication. Change the outbound map instead to leave out
-            // dropoff neighbours. Then add a calculated layer on top of the outbound paths that fills in the gaps, and use that when
-            // a ship is on one of the "forbiden" cells. Maybe...
-            /*if (ship.Role == ShipRole.Outbound)
-            {
-                // Outbound ships should not wander through dropoffs.
-                int distanceFromDropoff = myPlayer.DistanceFromDropoffMap[position];
-                if (distanceFromDropoff <= 1)
-                {
-                    int originDistanceFromDropoff = myPlayer.DistanceFromDropoffMap[ship.OriginPosition];
-                    if (distanceFromDropoff < originDistanceFromDropoff)
-                    {
-                        return true;
-                    }
-                }
-            }*/
 
             if (!ignoreBlocker)
             {
@@ -1278,7 +1333,7 @@
             return dangerousAdjustedHaliteMap;
         }
 
-        private OutboundMap GetOutboundMap()
+        private OutboundMap GetOutboundMap(bool isEarlyGame = false)
         {
             if (areHaliteBasedMapsDirty)
             {
@@ -1294,7 +1349,8 @@
                     MyPlayer = myPlayer,
                     Logger = logger,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = permanentForbiddenCellsMap
+                    ForbiddenCellsMap = permanentForbiddenCellsMap,
+                    IsEarlyGameMap = isEarlyGame
                 };
 
                 dangerousOutboundMap.Calculate();
@@ -1330,8 +1386,6 @@
                         forbiddenCellsMap[position] = true;
                         permanentForbiddenCellsMap[position] = true;
                     }
-
-                    //logger.LogDebug("Dropoff of " + player + " at " + dropoffPosition + " has the no-go zone: " + string.Join(", ", noGoDisc));
                 }
 
                 foreach (var ship in player.Ships)

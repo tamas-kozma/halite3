@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Text;
 
@@ -12,6 +13,7 @@
         public string Id { get; protected set; }
         public Position ShipyardPosition { get; protected set; }
         public int Halite { get; protected set; }
+        public int TotalReturnedHalite { get; private set; }
 
         /// <summary>
         /// Including the shipyard.
@@ -47,10 +49,15 @@
         public void Update(TurnMessage turnMessage)
         {
             var playerMessage = turnMessage.PlayerUpdates.Single(message => message.PlayerId == Id);
+            int haliteBefore = Halite;
             Halite = playerMessage.Halite;
 
             HandleDropoffMessages(playerMessage);
             HandleShipMessages(playerMessage);
+
+            // This can be negative, but that has already been accounted for when new ships and dropoffs got registered.
+            int haliteDifference= Halite - haliteBefore;
+            TotalReturnedHalite += haliteDifference;
         }
 
         protected void UpdateDropoffDistances()
@@ -77,6 +84,7 @@
             {
                 if (!DropoffPositions.Contains(message.Position))
                 {
+                    TotalReturnedHalite += GameConstants.DropoffCost;
                     DropoffPositions.Add(message.Position);
                     UpdateDropoffDistances();
                 }
@@ -92,6 +100,7 @@
                 var ship = Ships[i];
                 if (!shipMessagesById.TryGetValue(ship.Id, out var shipMessage))
                 {
+                    shipMessagesById.Remove(ship.Id);
                     Shipwrecks.Add(ship);
                     ShipMap[ship.Position] = null;
                     Ships.RemoveAt(i);
@@ -106,14 +115,19 @@
 
                 HandleAliveShip(ship, shipMessage);
 
+                ship.PreviousPosition = ship.Position;
                 ship.Position = shipMessage.Position;
                 ship.Halite = shipMessage.Halite;
             }
 
+            // New ships.
+            Debug.Assert(shipMessagesById.Count <= 1);
             foreach (var shipMessage in shipMessagesById.Values)
             {
+                TotalReturnedHalite += GameConstants.ShipCost;
                 var ship = HandleNewShip(shipMessage);
                 ship.Id = shipMessage.ShipId;
+                ship.Position = shipMessage.Position;
                 Ships.Add(ship);
                 ShipMap[shipMessage.Position] = ship;
             }

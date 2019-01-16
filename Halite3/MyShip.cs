@@ -21,10 +21,13 @@ namespace Halite3
         public bool IsOutboundGettingClose { get; set; }
         public Position? DesiredNextPosition { get; set; }
         public int FugitiveForTurnCount { get; set; }
+        public bool IsBlockedOutboundTurnedHarvester { get; set; }
+        public bool IsBlockedHarvesterTryingHarder { get; set; }
+        public bool IsEarlyGameShip { get; set; }
 
         public override string ToString()
         {
-            return "ship-" + Id + "-[OP=" + OriginPosition + ", P=" + Position + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + "]";
+            return "ship-" + Id + "-[OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + "]";
         }
     }
 }

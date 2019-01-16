@@ -12,6 +12,7 @@
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
         public BitMapLayer ForbiddenCellsMap { get; set; }
+        public bool IsEarlyGameMap { get; set; }
 
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
         public DataMapLayer<double> HarvestAreaMap { get; private set; }
@@ -46,7 +47,9 @@
             var distanceFromDropoffMap = MyPlayer.DistanceFromDropoffMap;
             int cellCount = outboundPaths.CellCount;
             int cellsAssigned = 0;
-            double stepPenaltyMultiplier = TuningSettings.OutboundMapPathStepPenaltyMultiplier;
+            double stepPenaltyMultiplier = (IsEarlyGameMap) 
+                ? TuningSettings.OutboundMapEarlyGamePathStepPenaltyMultiplier
+                : TuningSettings.OutboundMapPathStepPenaltyMultiplier;
 
             // Plus one because I check it only on the source cell.
             int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius + 1;
@@ -73,7 +76,7 @@
                 }
 
                 double nextValue = newValue * stepPenaltyMultiplier;
-                if (nextValue < 1d)
+                if (nextValue < double.Epsilon)
                 {
                     continue;
                 }

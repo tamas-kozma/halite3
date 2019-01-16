@@ -24,12 +24,14 @@
         {
             Debug.Assert(Halite >= GameConstants.ShipCost && NewShip == null);
 
+            Halite -= GameConstants.ShipCost;
             NewShip = new MyShip(this)
             {
                 Halite = 0,
                 Id = null,
                 Position = ShipyardPosition,
-                Role = ShipRole.Outbound
+                Role = ShipRole.Outbound,
+                PreviousPosition = ShipyardPosition
             };
         }
 

@@ -11,10 +11,11 @@
         public string Id { get; set; }
         public Position Position { get; set; }
         public int Halite { get; set; }
+        public Position PreviousPosition { get; set; }
 
         public override string ToString()
         {
-            return "ship-" + Id + ", P=" + Position + ", H=" + Halite + "]";
+            return "ship-" + Id + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + "]";
         }
     }
 }
