@@ -26,7 +26,7 @@
         public int OutboundMapDropoffAvoidanceRadius { get; set; } = 2;
 
         public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.9d;
-        public int OutboundShipSwitchToOriginMapDistance { get; set; } = 3;
+        public int OutboundShipSwitchToOriginMapDistance { get; set; } = 2;
         public int OutboundShipAntiSquarePathMinDifference { get; set; } = 3;
 
         public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.4d;
@@ -40,5 +40,9 @@
         public double FugitiveShipConversionRatio { get; set; } = 0.5d;
         public int FugitiveShipMinTurnCount { get; set; } = 2;
         public int FugitiveShipMaxTurnCount { get; set; } = 4;
+
+        public double EarlyGameTargetShipRatio { get; set; } = 0.8d;
+        public bool IsEarlyGameFeatureEnabled { get; set; } = true;
+        public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
     }
 }

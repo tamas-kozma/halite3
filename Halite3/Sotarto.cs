@@ -31,10 +31,10 @@
         private ReturnMap dangerousReturnMap;
         private AdjustedHaliteMap dangerousAdjustedHaliteMap;
         private OutboundMap dangerousOutboundMap;
+        private OutboundMap dangerousEarlyGameOutboundMap;
         private ReturnMap originReturnMap;
         private AdjustedHaliteMap originAdjustedHaliteMap;
         private OutboundMap originOutboundMap;
-        private OutboundMap earlyGameOutboundMap;
         private OutboundMap earlyGameOriginOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
@@ -47,6 +47,7 @@
         private DataMapLayer<Ship> allOpponentShipMap;
         private DataMapLayer<List<MyShip>> turnPredictionMap;
         private int earlyGameShipCount;
+        private int earlyGameShipMinReturnedHalite;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -60,6 +61,13 @@
 
             shipQueue = new List<MyShip>(100);
             shipListBank = new ListBank<MyShip>();
+
+            earlyGameShipMinReturnedHalite = -1;
+        }
+
+        public int TurnNumber
+        {
+            get { return turnMessage.TurnNumber; }
         }
 
         public void Play()
@@ -115,7 +123,8 @@
                 if (myPlayer.TotalReturnedHalite == 0
                     && ship.Position == myPlayer.ShipyardPosition 
                     && ship.Role == ShipRole.Outbound
-                    && !ship.IsEarlyGameShip)
+                    && !ship.IsEarlyGameShip
+                    && tuningSettings.IsEarlyGameFeatureEnabled)
                 {
                     earlyGameShipCount++;
                     ship.IsEarlyGameShip = true;
@@ -220,21 +229,25 @@
                         {
                             Debug.Assert(earlyGameOriginOutboundMap != null);
                             outboundMap = earlyGameOriginOutboundMap;
+                            //logger.LogDebug(ship + " gets earlyGameOriginOutboundMap (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                         else
                         {
                             outboundMap = originOutboundMap;
+                            //logger.LogDebug(ship + " gets originOutboundMap (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                     }
                     else
                     {
                         if (ship.IsEarlyGameShip)
                         {
-                            outboundMap = GetOutboundMap(true);
+                            outboundMap = GetEarlyGameOutboundMap();
+                            //logger.LogDebug(ship + " gets GetEarlyGameOutboundMap() (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                         else
                         {
                             outboundMap = GetOutboundMap();
+                            //logger.LogDebug(ship + " gets GetOutboundMap() (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                     }
 
@@ -355,11 +368,11 @@
         {
             if (ship.IsEarlyGameShip)
             {
-                // TODO: 800
                 int haliteLostOnTheWay = (int)(originReturnMap.CellData[ship.OriginPosition].SumHalite * GameConstants.MoveCostRatio);
-                int minHaliteToReturn = 800 + haliteLostOnTheWay + 5;
+                int minHaliteToReturn = GetEarlyGameShipMinReturnedHalite() + haliteLostOnTheWay + 5;
                 if (ship.Halite >= minHaliteToReturn)
                 {
+                    logger.LogDebug(ship + " turns homeward early.");
                     SetShipRole(ship, ShipRole.Inbound);
                     return;
                 }
@@ -444,6 +457,19 @@
                     SetShipRole(ship, ShipRole.Inbound);
                 }
             }
+        }
+
+        private int GetEarlyGameShipMinReturnedHalite()
+        {
+            if (earlyGameShipMinReturnedHalite == -1)
+            {
+                int targetShipCount = (int)Math.Round((myPlayer.InitialHalite / (double)GameConstants.ShipCost) * tuningSettings.EarlyGameTargetShipRatio);
+                int targetShipCountCost = targetShipCount * GameConstants.ShipCost;
+                int earlyGameShipCount = myPlayer.InitialHalite / GameConstants.ShipCost;
+                earlyGameShipMinReturnedHalite = (int)Math.Ceiling(targetShipCountCost / (double)earlyGameShipCount);
+            }
+
+            return earlyGameShipMinReturnedHalite;
         }
 
         private bool HarvesterWantsToMoveTo(MyShip ship, double originHalite, Position neighbour, double neighbourHalite)
@@ -584,35 +610,6 @@
             }
 
             ProcessShipOrder(ship, ship.OriginPosition, true);
-        }
-
-        private void AssignOrderToBlockedShipOld(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
-        {
-            var targetPosition = ship.OriginPosition;
-            if (ship.Role != ShipRole.Inbound)
-            {
-                int originDistanceFromDropoff = myPlayer.DistanceFromDropoffMap[ship.OriginPosition];
-                bool isAroundDropoff = (originDistanceFromDropoff <= 1);
-                if (isAroundDropoff)
-                {
-                    var bestAvailableNeighbour = neighbourhoodInfo.NullableBestAllowedNeighbourPosition;
-                    if (bestAvailableNeighbour.HasValue
-                        && myPlayer.DistanceFromDropoffMap[bestAvailableNeighbour.Value] > originDistanceFromDropoff)
-                    {
-                        targetPosition = bestAvailableNeighbour.Value;
-                    }
-                }
-            }
-
-            if (targetPosition == ship.OriginPosition && ship.BlockedTurnCount > 2)
-            {
-                if (myPlayer.MyShipMap[neighbourhoodInfo.BestPosition] == null)
-                {
-                    targetPosition = neighbourhoodInfo.BestPosition;
-                }
-            }
-
-            ProcessShipOrder(ship, targetPosition, true);
         }
 
         private NeighbourhoodInfo DiscoverNeighbourhood(MyShip ship, Func<Position, Position, bool> tiebreakerIsBetter)
@@ -934,7 +931,7 @@
             originReturnMap = GetReturnMap();
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
-            earlyGameOriginOutboundMap = (earlyGameShipCount != 0) ? GetOutboundMap(true) : null;
+            earlyGameOriginOutboundMap = (myPlayer.Ships.Count <= 1 || earlyGameShipCount != 0) ? GetEarlyGameOutboundMap() : null;
 
             return true;
         }
@@ -982,19 +979,25 @@
             Debug.Assert(!ship.HasActionAssigned 
                 && originHaliteMap.WraparoundDistance(ship.OriginPosition, position) == 1);
 
-            if (opponentPlayers.Length == 1)
-            {
-                // Yes, there will be crashes, but we'll lose the same, so I'll not get behind because of that.
-                // And being bold in general sounds like a good idea.
-                if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
-                {
-                    return false;
-                }
-            }
-
             if (forbiddenCellsMap[position])
             {
-                return true;
+                bool canBeIgnored = false;
+                if (opponentPlayers.Length == 1 && tuningSettings.IsTwoPlayerAggressiveModeEnabled)
+                {
+                    // Yes, there will be crashes, but we'll lose the same, so I'll not get behind because of that.
+                    // And being bold in general sounds like a good idea.
+                    if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
+                    {
+                        var shipAtPosition = myPlayer.MyShipMap[position];
+                        bool isForbiddenBecauseOfOwnShip = (shipAtPosition != null && shipAtPosition.HasActionAssigned);
+                        canBeIgnored = !isForbiddenBecauseOfOwnShip;
+                    }
+                }
+
+                if (!canBeIgnored)
+                {
+                    return true;
+                }
             }
 
             if (!ignoreBlocker)
@@ -1172,6 +1175,7 @@
             }
 
             logger.LogDebug("Simulating harvest for " + ship + ".");
+            //logger.LogDebug("Halite before at " + ship.Destination.Value + " is " + haliteMap[ship.Destination.Value] + " (original was " + originHaliteMap[ship.Destination.Value] + ")");
             var position = ship.Destination.Value;
             int localHalite = haliteMap[position];
             int haliteInShip = ship.Halite;
@@ -1221,6 +1225,7 @@
             }
 
             areHaliteBasedMapsDirty = true;
+            //logger.LogDebug("Halite after at " + ship.Destination.Value + " is " + haliteMap[ship.Destination.Value]);
         }
 
         public static void Main(string[] args)
@@ -1278,6 +1283,7 @@
             dangerousReturnMap = null;
             dangerousAdjustedHaliteMap = null;
             dangerousOutboundMap = null;
+            dangerousEarlyGameOutboundMap = null;
             areHaliteBasedMapsDirty = false;
         }
 
@@ -1333,7 +1339,7 @@
             return dangerousAdjustedHaliteMap;
         }
 
-        private OutboundMap GetOutboundMap(bool isEarlyGame = false)
+        private OutboundMap GetOutboundMap()
         {
             if (areHaliteBasedMapsDirty)
             {
@@ -1342,21 +1348,42 @@
 
             if (dangerousOutboundMap == null)
             {
-                dangerousOutboundMap = new OutboundMap()
-                {
-                    TuningSettings = tuningSettings,
-                    AdjustedHaliteMap = GetAdjustedHaliteMap(),
-                    MyPlayer = myPlayer,
-                    Logger = logger,
-                    MapBooster = mapBooster,
-                    ForbiddenCellsMap = permanentForbiddenCellsMap,
-                    IsEarlyGameMap = isEarlyGame
-                };
-
-                dangerousOutboundMap.Calculate();
+                dangerousOutboundMap = BuildOutboundMap();
             }
 
             return dangerousOutboundMap;
+        }
+
+        private OutboundMap GetEarlyGameOutboundMap()
+        {
+            if (areHaliteBasedMapsDirty)
+            {
+                ResetHaliteDependentState();
+            }
+
+            if (dangerousEarlyGameOutboundMap == null)
+            {
+                dangerousEarlyGameOutboundMap = BuildOutboundMap(true);
+            }
+
+            return dangerousEarlyGameOutboundMap;
+        }
+
+        private OutboundMap BuildOutboundMap(bool isEarlyGameMap = false)
+        {
+            var map = new OutboundMap()
+            {
+                TuningSettings = tuningSettings,
+                AdjustedHaliteMap = GetAdjustedHaliteMap(),
+                MyPlayer = myPlayer,
+                Logger = logger,
+                MapBooster = mapBooster,
+                ForbiddenCellsMap = permanentForbiddenCellsMap,
+                IsEarlyGameMap = isEarlyGameMap
+            };
+
+            map.Calculate();
+            return map;
         }
 
         private void UpdateHaliteMap(TurnMessage turnMessage)
