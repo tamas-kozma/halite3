@@ -73,3 +73,10 @@
 * Limit max halite in sea to around 2000
 ** More than that will attract ships from far away, bu they will never make it there in time
 * Maybe it didn't work because of the forbidden cells in the maps? TODO: From here...
+* Record opponent ship previous positions
+* Apply lots of heuristisc when setting up the origin forbidden map
+* When a harvester is blocked, try again with a lower move ratio
+** If still blocked, then just go ahead
+* Implement the improved push path thing
+* Be a lot more aggressive on two player maps
+** Ignoring enemy ships altogether?

@@ -43,9 +43,13 @@
             }
 
             var mapBooster = MapBooster;
+            var distanceFromDropoffMap = MyPlayer.DistanceFromDropoffMap;
             int cellCount = outboundPaths.CellCount;
             int cellsAssigned = 0;
             double stepPenaltyMultiplier = TuningSettings.OutboundMapPathStepPenaltyMultiplier;
+
+            // Plus one because I check it only on the source cell.
+            int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius + 1;
             while (queue.Count > 0)
             {
                 double newValue = -1 * queue.PeekPriority();
@@ -55,6 +59,9 @@
                 {
                     continue;
                 }
+
+                int distanceFromDropoff = distanceFromDropoffMap[position];
+                bool isCloseToDropoff = (distanceFromDropoff < outboundMapDropoffAvoidanceRadius);
 
                 outboundPaths[position] = newValue;
                 cellsAssigned++;
@@ -79,6 +86,15 @@
                     if (nextValue <= neighbourValue || forbiddenCellsMap[neighbour])
                     {
                         continue;
+                    }
+
+                    if (isCloseToDropoff)
+                    {
+                        int neighbourDistanceFromDropoff = distanceFromDropoffMap[neighbour];
+                        if (neighbourDistanceFromDropoff > distanceFromDropoff)
+                        {
+                            continue;
+                        }
                     }
 
                     queue.Enqueue(nextPriority, neighbour);

@@ -18,6 +18,7 @@
 
         private readonly MapLayerPainter painter;
         private readonly List<MyShip> shipQueue;
+        private readonly ListBank<MyShip> shipListBank;
 
         private int mapWidth;
         private int mapHeight;
@@ -42,6 +43,7 @@
         private bool areHaliteBasedMapsDirty;
         private int blockedShipCount;
         private DataMapLayer<Ship> allOpponentShipMap;
+        private DataMapLayer<List<MyShip>> turnPredictionMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -54,6 +56,7 @@
             painter.CellPixelSize = 8;
 
             shipQueue = new List<MyShip>(100);
+            shipListBank = new ListBank<MyShip>();
         }
 
         public void Play()
@@ -73,7 +76,7 @@
                 AssignOrdersToAllShips();
 
                 if (//turnMessage.TurnNumber <= 250 
-                    myPlayer.MyShips.Count <= 20
+                    myPlayer.MyShips.Count <= 60
                     && myPlayer.Halite >= GameConstants.ShipCost
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
                 {
@@ -147,9 +150,18 @@
                     }
                 }
 
+                if (bestShip.FugitiveForTurnCount > 0)
+                {
+                    bestShip.FugitiveForTurnCount--;
+                    if (bestShip.FugitiveForTurnCount == 0)
+                    {
+                        UpdateShipDestination(bestShip);
+                    }
+                }
+
                 //logger.LogDebug(bestShip.ToString());
 
-                if (bestShip.Destination.HasValue && bestShip.DistanceFromDestination == 0)
+                if (bestShip.Destination.HasValue && bestShip.Position == bestShip.Destination.Value)
                 {
                     if (bestShip.Role == ShipRole.Outbound)
                     {
@@ -205,6 +217,11 @@
                     ship.Map = null;
                     break;
             }
+
+            if (ship.FugitiveForTurnCount > 0)
+            {
+                ship.MapDirection = ship.MapDirection * -1;
+            }
         }
 
         private void UpdateShipDestination(MyShip ship)
@@ -215,13 +232,7 @@
                 return;
             }
 
-            int maxDistance = int.MaxValue;
-            if (ship.Role == ShipRole.Harvester)
-            {
-                maxDistance = 1;
-            }
-
-            (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship.Position, ship.Map, ship.MapDirection, maxDistance);
+            (var optimalDestination, int optimalDestinationDistance) = FollowPath(ship);
             ship.Destination = optimalDestination;
             ship.DistanceFromDestination = optimalDestinationDistance;
 
@@ -248,6 +259,12 @@
             logger.LogDebug("About to assing orders to ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + " and destination " + ship.Destination + ".");
 
             SetShipMap(ship);
+            if (ship.FugitiveForTurnCount > 0)
+            {
+                TryAssignOrderToFugitiveShip(ship);
+                return;
+            }
+
             switch (ship.Role)
             {
                 case ShipRole.Harvester:
@@ -269,6 +286,12 @@
             }
         }
 
+        private void TryAssignOrderToFugitiveShip(MyShip ship)
+        {
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
+            ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
+        }
+
         private void TryAssignOrderToInboundShip(MyShip ship)
         {
             Debug.Assert(myPlayer.DistanceFromDropoffMap[ship.OriginPosition] != 0);
@@ -276,7 +299,7 @@
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
             {
-                AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo);
+                AssignOrderToBlockedShip(ship, neighbourhoodInfo);
                 return;
             }
 
@@ -307,7 +330,7 @@
             int availableCapacity = GameConstants.ShipCapacity - ship.Halite;
             if (neighbourhoodInfo.BestAllowedPosition != ship.OriginPosition)
             {
-                bool wantsToMove = WantsToMoveTo(neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestAllowedPosition, neighbourhoodInfo.BestAllowedValue);
+                bool wantsToMove = HarvesterWantsToMoveTo(ship, neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestAllowedPosition, neighbourhoodInfo.BestAllowedValue);
                 if (wantsToMove)
                 {
                     HarvestOrGoHome(neighbourhoodInfo.BestAllowedPosition);
@@ -319,54 +342,21 @@
             if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition
                 && neighbourhoodInfo.OriginValue < neighbourhoodInfo.BestValue)
             {
-                bool wantsToMove = WantsToMoveTo(neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestPosition, neighbourhoodInfo.BestValue);
-                AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo);
-                return;
+                bool wantsToMove = HarvesterWantsToMoveTo(ship, neighbourhoodInfo.OriginValue, neighbourhoodInfo.BestPosition, neighbourhoodInfo.BestValue);
+                if (wantsToMove)
+                {
+                    if (ShouldHarvestAt(neighbourhoodInfo.BestPosition))
+                    {
+                        logger.LogDebug("Hsrvester got blocked: " + ship + ", BestAllowedPosition=" + neighbourhoodInfo.BestAllowedPosition + ", OriginValue=" + neighbourhoodInfo.OriginValue + ", BestPosition=" + neighbourhoodInfo.BestPosition + ", BestValue=" + neighbourhoodInfo.BestValue);
+                        AssignOrderToBlockedShip(ship, neighbourhoodInfo);
+                        return;
+                    }
+                }
             }
 
             // What's left is the case when the ship is not blocked and staying is better than moving.
             HarvestOrGoHome(ship.OriginPosition);
             return;
-
-            bool WantsToMoveTo(double originAdjustedHalite, Position neighbour, double neighbourAdjustedHalite)
-            {
-                if (neighbourAdjustedHalite < 1d)
-                {
-                    return false;
-                }
-
-                int originDropoffDistance = originReturnMap.CellData[ship.OriginPosition].Distance;
-                int neighbourDropoffDistance = originReturnMap.CellData[neighbour].Distance;
-                int dropoffDistanceDifference = neighbourDropoffDistance - originDropoffDistance;
-                if (dropoffDistanceDifference >= 0)
-                {
-                    // TODO: Can it be the same?!
-                    int turnLimit = 2 + dropoffDistanceDifference;
-                    int originActualHalite = originHaliteMap[ship.OriginPosition];
-                    int remainingAfterTurnLimit = (int)(Math.Pow(1 - GameConstants.ExtractRatio, turnLimit) * originActualHalite);
-                    int inShipAfterTurnLimit = ship.Halite + (originActualHalite - remainingAfterTurnLimit);
-                    if (inShipAfterTurnLimit >= GameConstants.ShipCapacity)
-                    {
-                        // If the ship would be full staying where it is in the same amount of time as it would take to move, harvest and 
-                        // potentially come back, then statying is better.
-                        return false;
-                    }
-
-                    int nextHarvestAfterTrunLimit = GetExtractedAmountIgnoringCapacity(remainingAfterTurnLimit);
-                    if (inShipAfterTurnLimit + nextHarvestAfterTrunLimit > GameConstants.ShipCapacity)
-                    {
-                        bool isOverflowAcceptable = IsOverflowWithinLimits(nextHarvestAfterTrunLimit, GameConstants.ShipCapacity - inShipAfterTurnLimit);
-                        if (!isOverflowAcceptable)
-                        {
-                            // This means that the ship would head home after the turn limit anyway.
-                            return false;
-                        }
-                    }
-                }
-
-                double haliteRatio = originAdjustedHalite / neighbourAdjustedHalite;
-                return (haliteRatio < tuningSettings.HarvesterMoveThresholdHaliteRatio);
-            }
 
             bool ShouldHarvestAt(Position position)
             {
@@ -383,14 +373,7 @@
                     return true;
                 }
 
-                return IsOverflowWithinLimits(extractableIgnoringCapacity, availableCapacity);
-            }
-
-            bool IsOverflowWithinLimits(int extractable, int localAvailableCapacity)
-            {
-                int overflow = extractable - localAvailableCapacity;
-                double overfillRatio = overflow / (double)extractable;
-                return (overfillRatio <= tuningSettings.HarvesterAllowedOverfillRatio);
+                return IsHarvesterOverflowWithinLimits(extractableIgnoringCapacity, availableCapacity);
             }
 
             void HarvestOrGoHome(Position position)
@@ -404,6 +387,53 @@
                     SetShipRole(ship, ShipRole.Inbound);
                 }
             }
+        }
+
+        private bool HarvesterWantsToMoveTo(MyShip ship, double originHalite, Position neighbour, double neighbourHalite)
+        {
+            if (neighbourHalite < 1d)
+            {
+                return false;
+            }
+
+            int originDropoffDistance = originReturnMap.CellData[ship.OriginPosition].Distance;
+            int neighbourDropoffDistance = originReturnMap.CellData[neighbour].Distance;
+            int dropoffDistanceDifference = neighbourDropoffDistance - originDropoffDistance;
+            if (dropoffDistanceDifference >= 0)
+            {
+                // TODO: Can it be the same?!
+                int turnLimit = 2 + dropoffDistanceDifference;
+                int originActualHalite = originHaliteMap[ship.OriginPosition];
+                int remainingAfterTurnLimit = (int)(Math.Pow(1 - GameConstants.ExtractRatio, turnLimit) * originActualHalite);
+                int inShipAfterTurnLimit = ship.Halite + (originActualHalite - remainingAfterTurnLimit);
+                if (inShipAfterTurnLimit >= GameConstants.ShipCapacity)
+                {
+                    // If the ship would be full staying where it is in the same amount of time as it would take to move, harvest and 
+                    // potentially come back, then statying is better.
+                    return false;
+                }
+
+                int nextHarvestAfterTrunLimit = GetExtractedAmountIgnoringCapacity(remainingAfterTurnLimit);
+                if (inShipAfterTurnLimit + nextHarvestAfterTrunLimit > GameConstants.ShipCapacity)
+                {
+                    bool isOverflowAcceptable = IsHarvesterOverflowWithinLimits(nextHarvestAfterTrunLimit, GameConstants.ShipCapacity - inShipAfterTurnLimit);
+                    if (!isOverflowAcceptable)
+                    {
+                        // This means that the ship would head home after the turn limit anyway.
+                        return false;
+                    }
+                }
+            }
+
+            double haliteRatio = originHalite / neighbourHalite;
+            return (haliteRatio < tuningSettings.HarvesterMoveThresholdHaliteRatio);
+        }
+
+        private bool IsHarvesterOverflowWithinLimits(int extractable, int localAvailableCapacity)
+        {
+            int overflow = extractable - localAvailableCapacity;
+            double overfillRatio = overflow / (double)extractable;
+            return (overfillRatio <= tuningSettings.HarvesterAllowedOverfillRatio);
         }
 
         private void TryAssignOrderToOutboundShip(MyShip ship)
@@ -440,7 +470,7 @@
 
                     if (!hasArrived)
                     {
-                        AssignOrderToBlockedShip(ship, neighbourhoodInfo.BestPosition, neighbourhoodInfo);
+                        AssignOrderToBlockedShip(ship, neighbourhoodInfo);
                         return;
                     }
                 }
@@ -454,15 +484,50 @@
         }
 
         // TODO: Implement. What I have here now is just temporary.
-        private void AssignOrderToBlockedShip(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
+        private void AssignOrderToBlockedShip(MyShip ship, NeighbourhoodInfo neighbourhoodInfo)
         {
             Debug.Assert(!ship.HasActionAssigned);
             Debug.Assert(neighbourhoodInfo.BestPosition != ship.OriginPosition);
-            /*
-            var blockerOpponentShip = allOpponentShipMap[neighbourhoodInfo.BestPosition];
-            bool isBlockedByOpponent = blockerOpponentShip;*/
 
-            ProcessShipOrder(ship, ship.OriginPosition, true);
+            var desiredNeighbour = neighbourhoodInfo.BestPosition;
+            var targetPosition = ship.OriginPosition;
+
+            // TODO: I don't want to do it like this.
+            // Harvesters don't often get blocked.
+            if (ship.Role == ShipRole.Harvester)
+            {
+                // Initially it will try standing still.
+                if (ship.BlockedTurnCount > 0)
+                {
+                    // If not blocked by an opponent, then it will wait until my other ship goes away.
+                    if (originForbiddenCellsMap[desiredNeighbour])
+                    {
+                        var blockerOpponentShip = allOpponentShipMap[desiredNeighbour];
+
+                        // If the opponent ship is standing right next to it, on the desired cell, then it will either go away eventually,
+                        // or harvest it, so that it will be less desirable (unless the enemy is stupid, of course, in which case the
+                        // refugee logic will kick in and save the day).
+                        if (blockerOpponentShip == null)
+                        {
+                            // TODO
+                            // Now we know that it is an opponent that's blocking us, and that
+                            targetPosition = desiredNeighbour;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                //logger.LogError("Blocked: " + ship + ", BANP=" + neighbourhoodInfo.BestAllowedNeighbourPosition + ", BANV=" + neighbourhoodInfo.BestAllowedNeighbourValue + ", OV=" + neighbourhoodInfo.OriginValue + "");
+
+                if (random.Next(3) == 0 && neighbourhoodInfo.NullableBestAllowedNeighbourPosition.HasValue)
+                {
+                    targetPosition = neighbourhoodInfo.NullableBestAllowedNeighbourPosition.Value;
+                    logger.LogError("Blocked " + ship + " moves to suboptimal " + targetPosition + " (" + neighbourhoodInfo.BestAllowedNeighbourValue + ") from " + ship.OriginPosition + " (" + neighbourhoodInfo.OriginValue + ").");
+                }
+            }
+
+            ProcessShipOrder(ship, targetPosition, true);
         }
 
         private void AssignOrderToBlockedShipOld(MyShip ship, Position desiredNeighbour, NeighbourhoodInfo neighbourhoodInfo)
@@ -509,7 +574,7 @@
                 BestAllowedPosition = ship.OriginPosition,
                 BestValue = originValue,
                 BestPosition = ship.OriginPosition,
-                BestAllowedNeighbourValue = -1d,
+                BestAllowedNeighbourValue = double.MinValue,
                 BestAllowedNeighbourPosition = default(Position)
             };
 
@@ -540,10 +605,22 @@
             }
         }
 
-        private (Position, int) FollowPath(Position start, DataMapLayer<double> map, int mapDirection, int maxDistance = int.MaxValue)
+        private (Position, int) FollowPath(MyShip ship)
         {
-            var position = start;
-            double value = map[start] * mapDirection;
+            int maxDistance = int.MaxValue;
+            if (ship.FugitiveForTurnCount > 0)
+            {
+                maxDistance = ship.FugitiveForTurnCount;
+            }
+            else if (ship.Role == ShipRole.Harvester)
+            {
+                maxDistance = 1;
+            }
+
+            var map = ship.Map;
+            int mapDirection = ship.MapDirection;
+            var position = ship.OriginPosition;
+            double value = map[position] * mapDirection;
             int distance = 0;
             while (distance < maxDistance)
             {
@@ -562,6 +639,11 @@
 
                 if (bestNeighbourValue <= value)
                 {
+                    if (distance == 0)
+                    {
+                        SetDesiredNextPosition(ship, position);
+                    }
+
                     break;
                 }
                 else
@@ -569,10 +651,76 @@
                     distance++;
                     position = bestNeighbour;
                     value = bestNeighbourValue;
+
+                    if (distance == 1)
+                    {
+                        Position desiredNextPosition;
+                        if (ship.Role == ShipRole.Harvester)
+                        {
+                            if (HarvesterWantsToMoveTo(ship, originHaliteDoubleMap[ship.OriginPosition], position, originHaliteDoubleMap[position]))
+                            {
+                                desiredNextPosition = position;
+                            }
+                            else
+                            {
+                                desiredNextPosition = ship.OriginPosition;
+                            }
+                        }
+                        else
+                        {
+                            desiredNextPosition = position;
+                        }
+
+                        SetDesiredNextPosition(ship, desiredNextPosition);
+                    }
                 }
             }
 
             return (position, distance);
+        }
+
+        private void ClearDesiredNextPosition(MyShip ship)
+        {
+            if (ship.DesiredNextPosition.HasValue)
+            {
+                var oldDesiredPosition = ship.DesiredNextPosition.Value;
+                var shipList = turnPredictionMap[oldDesiredPosition];
+                bool removed = shipList.Remove(ship);
+                Debug.Assert(removed);
+
+                if (shipList.Count == 0)
+                {
+                    turnPredictionMap[oldDesiredPosition] = null;
+                    shipListBank.Return(shipList);
+                }
+
+                ship.DesiredNextPosition = null;
+            }
+        }
+
+        private void SetDesiredNextPosition(MyShip ship, Position position)
+        {
+            if (ship.DesiredNextPosition.HasValue)
+            {
+                if (ship.DesiredNextPosition.Value == position)
+                {
+                    Debug.Assert(turnPredictionMap[position] != null && turnPredictionMap[position].Contains(ship));
+                    return;
+                }
+
+                ClearDesiredNextPosition(ship);
+            }
+
+            ship.DesiredNextPosition = position;
+            var shipList = turnPredictionMap[position];
+            if (shipList == null)
+            {
+                shipList = shipListBank.Rent();
+                turnPredictionMap[position] = shipList;
+            }
+
+            Debug.Assert(!shipList.Contains(ship));
+            shipList.Add(ship);
         }
 
         private void ProcessShipOrder(MyShip ship, Position position, bool isBlocked = false)
@@ -616,6 +764,17 @@
             ship.Position = position;
             forbiddenCellsMap[position] = true;
             ship.HasActionAssigned = true;
+
+            if (isBlocked && ship.BlockedTurnCount >= tuningSettings.FugitiveShipConversionMinBlockedTurnCount - 1)
+            {
+                Debug.Assert(ship.FugitiveForTurnCount == 0);
+                if (random.NextDouble() < tuningSettings.FugitiveShipConversionRatio)
+                {
+                    ship.FugitiveForTurnCount = random.Next(tuningSettings.FugitiveShipMinTurnCount, tuningSettings.FugitiveShipMaxTurnCount + 1);
+                    isBlocked = false;
+                }
+            }
+
             if (isBlocked)
             {
                 if (ship.BlockedTurnCount == 0)
@@ -699,6 +858,7 @@
             permanentForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
             allOpponentShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
+            turnPredictionMap = new DataMapLayer<List<MyShip>>(mapWidth, mapHeight);
 
             haliteEngineInterface.Ready(Name);
         }
@@ -750,6 +910,8 @@
                 {
                     blockedShipCount--;
                 }
+
+                ClearDesiredNextPosition(myShipWreck);
             }
         }
 
@@ -1241,7 +1403,6 @@
             PrintSvg(svg, name);
         }
 
-        [Conditional("DEBUG")]
         private void PrintSvg(string svg, string name)
         {
             File.WriteAllText(name + "-" + myPlayer.Id + ".svg", svg);
@@ -1260,7 +1421,7 @@
 
             public bool HasAllowedNeighbour
             {
-                get { return (BestAllowedNeighbourValue != -1); }
+                get { return (BestAllowedNeighbourValue != double.MinValue); }
             }
 
             public Position? NullableBestAllowedNeighbourPosition
