@@ -1,8 +1,6 @@
 ﻿namespace Halite3
 {
     using System;
-    using System.Diagnostics;
-    using System.Linq;
 
     public sealed class OutboundMap
     {

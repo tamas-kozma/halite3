@@ -35,6 +35,11 @@
             get { return mapHeight; }
         }
 
+        public MapLayer<bool> Calculator
+        {
+            get { return calculator; }
+        }
+
         public Position[] GetOutboundMapHarvestAreaSmoothingDisc(int row, int column)
         {
             int index = calculator.PositionToArrayIndex(row, column);

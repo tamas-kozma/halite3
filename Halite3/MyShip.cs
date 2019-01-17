@@ -24,6 +24,7 @@ namespace Halite3
         public bool IsBlockedOutboundTurnedHarvester { get; set; }
         public bool IsBlockedHarvesterTryingHarder { get; set; }
         public bool IsEarlyGameShip { get; set; }
+        public bool HasFoundTooLittleHaliteToHarvestThisTurn { get; set; }
 
         public override string ToString()
         {

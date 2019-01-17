@@ -14,6 +14,7 @@
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
         public BitMapLayer ForbiddenCellsMap { get; set; }
+        public OpponentHarvestAreaMap OpponentHarvestAreaMap { get; set; }
 
         public DataMapLayer<double> Values { get; private set; }
 
@@ -26,6 +27,7 @@
         {
             Values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
             double maxHalite = TuningSettings.AdjustedHaliteMapMaxHalite;
+            var opponentHarvestAreaBonusMultiplierMap = OpponentHarvestAreaMap.HaliteMultiplierMap;
             foreach (var position in BaseHaliteMap.AllPositions)
             {
                 if (ForbiddenCellsMap[position])
@@ -37,22 +39,15 @@
                 int halite = BaseHaliteMap[position];
                 int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
                 double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
-                Values[position] = Math.Min(maxHalite, Math.Max(halite - lostHalite, 0));
+                double adjustedHalite = Math.Max(halite - lostHalite, 0);
+                double opponentHarvestAreaBonusMultiplier = opponentHarvestAreaBonusMultiplierMap[position];
+                if (opponentHarvestAreaBonusMultiplier > 0)
+                {
+                    adjustedHalite *= opponentHarvestAreaBonusMultiplier;
+                }
+
+                Values[position] = Math.Min(maxHalite, adjustedHalite);
             }
-
-            string myPlayerId = GameInitializationMessage.MyPlayerId;
-            var opponentPlayerUpdateMessages = TurnMessage.PlayerUpdates
-                .Where(message => message.PlayerId != myPlayerId);
-
-            // TODO: Replace this with a more permanent smell based bonus, to reduce destination fluctuation.
-            var opponentHarvesterPositions = opponentPlayerUpdateMessages
-                .SelectMany(message => message.Ships)
-                .Where(shipMessage =>
-                    shipMessage.Halite > TuningSettings.OutboundMapMinOpponentHarvesterHalite
-                    && shipMessage.Halite < TuningSettings.OutboundMapMaxOpponentHarvesterHalite)
-                .Select(shipMessage => shipMessage.Position);
-
-            AdjustHaliteInMultipleDiscs(opponentHarvesterPositions, TuningSettings.OutboundMapOpponentHarvesterBonusRadius, TuningSettings.OutboundMapOpponentHarvesterBonusMultiplier);
         }
 
         private void AdjustHaliteInMultipleDiscs(IEnumerable<Position> positions, int radius, double multiplier)

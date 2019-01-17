@@ -81,3 +81,11 @@
 * Be a lot more aggressive on two player maps
 ** Ignoring enemy ships altogether?
 * TODO: Test and fix all the changes done in the last commit
+* In replay-20190117-140649+0100-1547235188-64-64.hlt
+** My ships harvest two halites around the dropoff
+*** Change the function for distance penalties maybe?
+** Inbound ships not obviously blocked stay put for a long time
+** Inbound ships behind enemy lines have a hard time getting home
+** Outbound ships trying to go behind enemy lines get stuck
+* The new HasFoundTooLittleHaliteToHarvestThisTurn is good to have for safety, but should not be necessary
+** Find a better way to fix the problem introduced by the opponent harvest area bonuses

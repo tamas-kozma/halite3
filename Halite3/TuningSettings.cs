@@ -17,8 +17,6 @@
         // TODO
         public int OutboundMapMinOpponentHarvesterHalite { get; set; } = 50;
         public int OutboundMapMaxOpponentHarvesterHalite { get; set; } = 800;
-        public int OutboundMapOpponentHarvesterBonusRadius { get; set; } = 5;
-        public double OutboundMapOpponentHarvesterBonusMultiplier { get; set; } = 1.0d; // 1.1
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
         public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.92d; // 0.96
         public double OutboundMapEarlyGamePathStepPenaltyMultiplier { get; set; } = 0.88d;
@@ -44,5 +42,10 @@
         public double EarlyGameTargetShipRatio { get; set; } = 0.8d;
         public bool IsEarlyGameFeatureEnabled { get; set; } = true;
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
+
+        public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
+        public double OpponentHarvestAreaMapHaliteBonusMultiplier { get; set; } = 1.5d;
+        public double OpponentHarvestAreaMapHaliteBonusMultiplierCap { get; set; } = 3d;
+        public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
     }
 }

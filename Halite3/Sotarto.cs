@@ -50,6 +50,7 @@
         private int earlyGameShipMinReturnedHalite;
         private PushPathCalculator pushPathCalculator;
         private int totalHaliteOnMap;
+        private OpponentHarvestAreaMap opponentHarvestAreaMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -121,6 +122,7 @@
 
                 ship.IsBlockedHarvesterTryingHarder = false;
                 ship.IsBlockedOutboundTurnedHarvester = false;
+                ship.HasFoundTooLittleHaliteToHarvestThisTurn = false;
 
                 if (myPlayer.TotalReturnedHalite == 0
                     && ship.Position == myPlayer.ShipyardPosition 
@@ -383,18 +385,22 @@
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
 
             // Handles the case when there's too little halite left in the neighbourhood.
-            var outboundMap = GetOutboundMap();
-            double pathValueAtBestPosition = outboundMap.OutboundPaths[neighbourhoodInfo.BestPosition];
-            if (pathValueAtBestPosition != 0)
+            if (!ship.HasFoundTooLittleHaliteToHarvestThisTurn)
             {
-                double bestHaliteToPathValueRatio = neighbourhoodInfo.BestValue / pathValueAtBestPosition;
-                bool isPointlessToHarvest = (bestHaliteToPathValueRatio < tuningSettings.HarvesterToOutboundConversionMaximumHaliteRatio);
-                if (isPointlessToHarvest)
+                var outboundMap = GetOutboundMap();
+                double pathValueAtBestPosition = outboundMap.OutboundPaths[neighbourhoodInfo.BestPosition];
+                if (pathValueAtBestPosition != 0)
                 {
-                    var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
-                    logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (pathValueAtBestPosition = " + pathValueAtBestPosition + ", bestValue = " + neighbourhoodInfo.BestValue + ").");
-                    SetShipRole(ship, newRole);
-                    return;
+                    double bestHaliteToPathValueRatio = neighbourhoodInfo.BestValue / pathValueAtBestPosition;
+                    bool isPointlessToHarvest = (bestHaliteToPathValueRatio < tuningSettings.HarvesterToOutboundConversionMaximumHaliteRatio);
+                    if (isPointlessToHarvest)
+                    {
+                        ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
+                        var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
+                        logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (pathValueAtBestPosition = " + pathValueAtBestPosition + ", bestValue = " + neighbourhoodInfo.BestValue + ").");
+                        SetShipRole(ship, newRole);
+                        return;
+                    }
                 }
             }
 
@@ -933,6 +939,13 @@
                 TurnPredictionMap = turnPredictionMap
             };
 
+            opponentHarvestAreaMap = new OpponentHarvestAreaMap(mapBooster)
+            {
+                Logger = logger,
+                TuningSettings = tuningSettings,
+                AllOpponentShipMap = allOpponentShipMap
+            };
+
             haliteEngineInterface.Ready(Name);
         }
 
@@ -1232,7 +1245,8 @@
                     ReturnMap = GetReturnMap(),
                     Logger = logger,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = permanentForbiddenCellsMap
+                    ForbiddenCellsMap = permanentForbiddenCellsMap,
+                    OpponentHarvestAreaMap = opponentHarvestAreaMap
                 };
 
                 dangerousAdjustedHaliteMap.Calculate();
@@ -1290,18 +1304,28 @@
 
         private void UpdateHaliteMap(TurnMessage turnMessage)
         {
+            var opponentHarvestPositionList = new List<Position>();
             foreach (var cellUpdateMessage in turnMessage.MapUpdates)
             {
-                int oldHalite = originHaliteMap[cellUpdateMessage.Position];
+                var position = cellUpdateMessage.Position;
+                int oldHalite = originHaliteMap[position];
                 int newHalite = cellUpdateMessage.Halite;
-                int haliteDifference = oldHalite - newHalite;
-                totalHaliteOnMap -= haliteDifference;
-                originHaliteMap[cellUpdateMessage.Position] = newHalite;
-                originHaliteDoubleMap[cellUpdateMessage.Position] = newHalite;
+                int haliteDifference = newHalite - oldHalite;
+                totalHaliteOnMap += haliteDifference;
+                originHaliteMap[position] = newHalite;
+                originHaliteDoubleMap[position] = newHalite;
+
+                if (haliteDifference < 0 && allOpponentShipMap[position] != null)
+                {
+                    opponentHarvestPositionList.Add(position);
+                }
             }
 
             haliteMap = new DataMapLayer<int>(originHaliteMap);
             ResetHaliteDependentState();
+
+            opponentHarvestAreaMap.Update(opponentHarvestPositionList);
+            PaintMap(opponentHarvestAreaMap.HaliteMultiplierMap, "HaliteMultiplierMap" + TurnNumber);
         }
 
         private void UpdateForbiddenCellsMap()
@@ -1383,7 +1407,7 @@
             PrintSvg(svg, name);
         }
 
-        [Conditional("DEBUG")]
+        //[Conditional("DEBUG")]
         private void PaintMap(MapLayer<double> map, string name)
         {
             string svg = painter.MapLayerToSvg(map);
