@@ -30,6 +30,7 @@
         public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.4d;
         public double HarvesterBlockedMoveThresholdHaliteRatio { get; set; } = 0.3d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
+        public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
         public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.5d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.5d;

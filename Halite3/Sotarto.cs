@@ -73,6 +73,8 @@
             get { return turnMessage.TurnNumber; }
         }
 
+        public bool IsMuted { get; set; }
+
         public void Play()
         {
             Initialize();
@@ -425,7 +427,7 @@
                 {
                     if (ShouldHarvestAt(neighbourhoodInfo.BestPosition))
                     {
-                        logger.LogDebug("Hsrvester got blocked: " + ship + ", BestAllowedPosition=" + neighbourhoodInfo.BestAllowedPosition + ", OriginValue=" + neighbourhoodInfo.OriginValue + ", BestPosition=" + neighbourhoodInfo.BestPosition + ", BestValue=" + neighbourhoodInfo.BestValue);
+                        logger.LogDebug("Harvester got blocked: " + ship + ", BestAllowedPosition=" + neighbourhoodInfo.BestAllowedPosition + ", OriginValue=" + neighbourhoodInfo.OriginValue + ", BestPosition=" + neighbourhoodInfo.BestPosition + ", BestValue=" + neighbourhoodInfo.BestValue);
                         AssignOrderToBlockedShip(ship, neighbourhoodInfo);
                         return;
                     }
@@ -584,6 +586,7 @@
             Debug.Assert(neighbourhoodInfo.BestPosition != ship.OriginPosition);
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
+            bool isBlockedByOpponent = (originForbiddenCellsMap[desiredNeighbour] && myPlayer.ShipMap[desiredNeighbour] == null);
             if (ship.Role == ShipRole.Outbound)
             {
                 if (ship.Destination.HasValue && ship.DistanceFromDestination == 1 
@@ -597,8 +600,7 @@
 
             if (ship.Role == ShipRole.Harvester)
             {
-                // It is an opponent that is blocking.
-                if (originForbiddenCellsMap[desiredNeighbour] && myPlayer.ShipMap[desiredNeighbour] == null)
+                if (isBlockedByOpponent)
                 {
                     if (!ship.IsBlockedHarvesterTryingHarder)
                     {
@@ -606,12 +608,26 @@
                         return;
                     }
 
+                    if (ship.Halite >= tuningSettings.HarvesterMinimumFillWhenBlockedByOpponent)
+                    {
+                        SetShipRole(ship, ShipRole.Inbound);
+                        return;
+                    }
+
                     // No opponent ship is currently there.
-                    // To that if it is there, but predicted to be moving away, then the spot will not be forbidden.
+                    // If it is there, but predicted to be moving away, then the spot will not be forbidden.
                     if (allOpponentShipMap[desiredNeighbour] == null)
                     {
                         // Geronimo!
                         ProcessShipOrder(ship, desiredNeighbour, false);
+                        return;
+                    }
+                }
+                else
+                {
+                    if (ship.Halite >= tuningSettings.HarvesterMinimumFillDefault)
+                    {
+                        SetShipRole(ship, ShipRole.Inbound);
                         return;
                     }
                 }
@@ -1160,7 +1176,7 @@
             }
             else
             {
-                randomSeed = DateTime.Now.Millisecond;
+                randomSeed = 0;
             }
 
             var random = new Random(randomSeed);
@@ -1179,9 +1195,14 @@
                 Directory.SetCurrentDirectory(Path.GetDirectoryName(testModeLinesFile));
             }
 
+            bool isMuted = args.Any(arg => arg == "muted");
+            logger.IsMuted = isMuted;
+
             var tuningSettings = new TuningSettings();
 
             var bot = new Sotarto(logger, random, engineInterface, tuningSettings);
+            bot.IsMuted = isMuted;
+
             try
             {
                 bot.Play();
@@ -1325,7 +1346,7 @@
             ResetHaliteDependentState();
 
             opponentHarvestAreaMap.Update(opponentHarvestPositionList);
-            PaintMap(opponentHarvestAreaMap.HaliteMultiplierMap, "HaliteMultiplierMap" + TurnNumber);
+            //PaintMap(opponentHarvestAreaMap.HaliteMultiplierMap, "HaliteMultiplierMap" + TurnNumber);
         }
 
         private void UpdateForbiddenCellsMap()
@@ -1390,19 +1411,13 @@
         }
 
         [Conditional("DEBUG")]
-        private void PrintMaps()
-        {
-            PaintMap(originHaliteMap, "haliteMap");
-            PaintMap(dangerousReturnMap.PathCosts, "returnPathCosts");
-            PaintMap(dangerousAdjustedHaliteMap.Values, "outboundAdjustedHaliteMap");
-            PaintMap(dangerousOutboundMap.DiscAverageLayer, "outboundAdjustedAverageHaliteMap");
-            PaintMap(dangerousOutboundMap.HarvestAreaMap, "outboundHarvestAreas");
-            PaintMap(dangerousOutboundMap.OutboundPaths, "outboundPaths");
-        }
-
-        [Conditional("DEBUG")]
         private void PaintMap(MapLayer<int> map, string name)
         {
+            if (IsMuted)
+            {
+                return;
+            }
+
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }
@@ -1410,6 +1425,11 @@
         //[Conditional("DEBUG")]
         private void PaintMap(MapLayer<double> map, string name)
         {
+            if (IsMuted)
+            {
+                return;
+            }
+
             string svg = painter.MapLayerToSvg(map);
             PrintSvg(svg, name);
         }

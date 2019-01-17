@@ -20,4 +20,5 @@ bld/
 TestResult.xml
 *.zip
 submit/
+reference/
 

@@ -141,7 +141,8 @@
                     return false;
                 }
 
-                if (PredictedBlockerRole.IsHigherOrEqualPriorityThan(MainVip.Role))
+                if (PredictedBlockerRole != Blocker.Role 
+                    && PredictedBlockerRole.IsHigherOrEqualPriorityThan(MainVip.Role))
                 {
                     // Since we don't know yet what it will want to do.
                     return false;
