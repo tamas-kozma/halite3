@@ -32,10 +32,16 @@
         private AdjustedHaliteMap dangerousAdjustedHaliteMap;
         private OutboundMap dangerousOutboundMap;
         private OutboundMap dangerousEarlyGameOutboundMap;
+        private ReturnMap dangerousDetourReturnMap;
+        private AdjustedHaliteMap dangerousDetourAdjustedHaliteMap;
+        private OutboundMap dangerousDetourOutboundMap;
         private ReturnMap originReturnMap;
         private AdjustedHaliteMap originAdjustedHaliteMap;
         private OutboundMap originOutboundMap;
         private OutboundMap earlyGameOriginOutboundMap;
+        private ReturnMap originDetourReturnMap;
+        private AdjustedHaliteMap originDetourAdjustedHaliteMap;
+        private OutboundMap originDetourOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
         private BitMapLayer permanentForbiddenCellsMap;
@@ -247,12 +253,12 @@
                     {
                         if (ship.IsEarlyGameShip)
                         {
-                            outboundMap = GetEarlyGameOutboundMap();
+                            outboundMap = GetOutboundMap(MapSetKind.EarlyGame);
                             //logger.LogDebug(ship + " gets GetEarlyGameOutboundMap() (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                         else
                         {
-                            outboundMap = GetOutboundMap();
+                            outboundMap = GetOutboundMap(MapSetKind.Default);
                             //logger.LogDebug(ship + " gets GetOutboundMap() (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                     }
@@ -389,7 +395,7 @@
             // Handles the case when there's too little halite left in the neighbourhood.
             if (!ship.HasFoundTooLittleHaliteToHarvestThisTurn)
             {
-                var outboundMap = GetOutboundMap();
+                var outboundMap = GetOutboundMap(MapSetKind.Default);
                 double pathValueAtBestPosition = outboundMap.OutboundPaths[neighbourhoodInfo.BestPosition];
                 if (pathValueAtBestPosition != 0)
                 {
@@ -977,10 +983,13 @@
             UpdateHaliteMap(turnMessage);
             UpdateForbiddenCellsMap();
 
-            originReturnMap = GetReturnMap();
-            originAdjustedHaliteMap = GetAdjustedHaliteMap();
-            originOutboundMap = GetOutboundMap();
-            earlyGameOriginOutboundMap = (myPlayer.Ships.Count <= 1 || earlyGameShipCount != 0) ? GetEarlyGameOutboundMap() : null;
+            originReturnMap = GetReturnMap(MapSetKind.Default);
+            originAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Default);
+            originOutboundMap = GetOutboundMap(MapSetKind.Default);
+            earlyGameOriginOutboundMap = (myPlayer.Ships.Count <= 1 || earlyGameShipCount != 0) ? GetOutboundMap(MapSetKind.EarlyGame) : null;
+            originDetourReturnMap = GetReturnMap(MapSetKind.Detour);
+            originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
+            originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
             logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
 
@@ -1220,107 +1229,130 @@
             dangerousAdjustedHaliteMap = null;
             dangerousOutboundMap = null;
             dangerousEarlyGameOutboundMap = null;
+            dangerousDetourReturnMap = null;
+            dangerousDetourAdjustedHaliteMap = null;
+            dangerousDetourOutboundMap = null;
             areHaliteBasedMapsDirty = false;
         }
 
-        private ReturnMap GetReturnMap()
+        private ReturnMap GetReturnMap(MapSetKind kind)
         {
             if (areHaliteBasedMapsDirty)
             {
                 ResetHaliteDependentState();
             }
 
-            if (dangerousReturnMap == null)
+            switch (kind)
             {
-                dangerousReturnMap = new ReturnMap()
+                case MapSetKind.Default:
+                    return GetReturnMap(ref dangerousReturnMap, permanentForbiddenCellsMap);
+                case MapSetKind.Detour:
+                    return GetReturnMap(ref dangerousDetourReturnMap, originForbiddenCellsMap);
+                default:
+                    throw new ArgumentException();
+            }
+        }
+
+        private ReturnMap GetReturnMap(ref ReturnMap mapStorage, BitMapLayer forbiddenCellsMapToUse)
+        {
+            if (mapStorage == null)
+            {
+                mapStorage = new ReturnMap()
                 {
                     HaliteMap = haliteMap,
                     TuningSettings = tuningSettings,
                     Logger = logger,
                     MyPlayer = myPlayer,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = permanentForbiddenCellsMap
+                    ForbiddenCellsMap = forbiddenCellsMapToUse
                 };
 
-                dangerousReturnMap.Calculate();
+                mapStorage.Calculate();
             }
 
-            return dangerousReturnMap;
+            return mapStorage;
         }
 
-        private AdjustedHaliteMap GetAdjustedHaliteMap()
+        private AdjustedHaliteMap GetAdjustedHaliteMap(MapSetKind kind)
         {
             if (areHaliteBasedMapsDirty)
             {
                 ResetHaliteDependentState();
             }
 
-            if (dangerousAdjustedHaliteMap == null)
+            switch (kind)
             {
-                dangerousAdjustedHaliteMap = new AdjustedHaliteMap()
+                case MapSetKind.Default:
+                    return GetAdjustedHaliteMap(ref dangerousAdjustedHaliteMap, GetReturnMap(kind), permanentForbiddenCellsMap);
+                case MapSetKind.Detour:
+                    return GetAdjustedHaliteMap(ref dangerousDetourAdjustedHaliteMap, GetReturnMap(kind), originForbiddenCellsMap);
+                default:
+                    throw new ArgumentException();
+            }
+        }
+
+        private AdjustedHaliteMap GetAdjustedHaliteMap(ref AdjustedHaliteMap mapStorage, ReturnMap returnMapToUse, BitMapLayer forbiddenCellsMapToUse)
+        {
+            if (mapStorage == null)
+            {
+                mapStorage = new AdjustedHaliteMap()
                 {
                     TuningSettings = tuningSettings,
                     BaseHaliteMap = haliteMap,
                     GameInitializationMessage = gameInitializationMessage,
                     TurnMessage = turnMessage,
-                    ReturnMap = GetReturnMap(),
+                    ReturnMap = returnMapToUse,
                     Logger = logger,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = permanentForbiddenCellsMap,
+                    ForbiddenCellsMap = forbiddenCellsMapToUse,
                     OpponentHarvestAreaMap = opponentHarvestAreaMap
                 };
 
-                dangerousAdjustedHaliteMap.Calculate();
+                mapStorage.Calculate();
             }
 
-            return dangerousAdjustedHaliteMap;
+            return mapStorage;
         }
 
-        private OutboundMap GetOutboundMap()
+        private OutboundMap GetOutboundMap(MapSetKind kind)
         {
             if (areHaliteBasedMapsDirty)
             {
                 ResetHaliteDependentState();
             }
 
-            if (dangerousOutboundMap == null)
+            switch (kind)
             {
-                dangerousOutboundMap = BuildOutboundMap();
+                case MapSetKind.Default:
+                    return GetOutboundMap(ref dangerousOutboundMap, false, GetAdjustedHaliteMap(kind), permanentForbiddenCellsMap);
+                case MapSetKind.Detour:
+                    return GetOutboundMap(ref dangerousDetourOutboundMap, false, GetAdjustedHaliteMap(kind), originForbiddenCellsMap);
+                case MapSetKind.EarlyGame:
+                    return GetOutboundMap(ref dangerousEarlyGameOutboundMap, true, GetAdjustedHaliteMap(MapSetKind.Default), permanentForbiddenCellsMap);
+                default:
+                    throw new ArgumentException();
             }
-
-            return dangerousOutboundMap;
         }
 
-        private OutboundMap GetEarlyGameOutboundMap()
+        private OutboundMap GetOutboundMap(ref OutboundMap mapStorage, bool isEarlyGameMap, AdjustedHaliteMap adjustedHaliteMapToUse, BitMapLayer forbiddenCellsMapToUse)
         {
-            if (areHaliteBasedMapsDirty)
+            if (mapStorage == null)
             {
-                ResetHaliteDependentState();
+                mapStorage = new OutboundMap()
+                {
+                    TuningSettings = tuningSettings,
+                    AdjustedHaliteMap = adjustedHaliteMapToUse,
+                    MyPlayer = myPlayer,
+                    Logger = logger,
+                    MapBooster = mapBooster,
+                    ForbiddenCellsMap = forbiddenCellsMapToUse,
+                    IsEarlyGameMap = isEarlyGameMap
+                };
+
+                mapStorage.Calculate();
             }
 
-            if (dangerousEarlyGameOutboundMap == null)
-            {
-                dangerousEarlyGameOutboundMap = BuildOutboundMap(true);
-            }
-
-            return dangerousEarlyGameOutboundMap;
-        }
-
-        private OutboundMap BuildOutboundMap(bool isEarlyGameMap = false)
-        {
-            var map = new OutboundMap()
-            {
-                TuningSettings = tuningSettings,
-                AdjustedHaliteMap = GetAdjustedHaliteMap(),
-                MyPlayer = myPlayer,
-                Logger = logger,
-                MapBooster = mapBooster,
-                ForbiddenCellsMap = permanentForbiddenCellsMap,
-                IsEarlyGameMap = isEarlyGameMap
-            };
-
-            map.Calculate();
-            return map;
+            return mapStorage;
         }
 
         private void UpdateHaliteMap(TurnMessage turnMessage)
