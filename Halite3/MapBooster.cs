@@ -53,6 +53,11 @@
             return neighbourhoods[index];
         }
 
+        public int Distance(Position position1, Position position2)
+        {
+            return calculator.WraparoundDistance(position1, position2);
+        }
+
         private void Calculate()
         {
             calculator = new BitMapLayer(this.mapWidth, this.mapHeight);

@@ -48,6 +48,8 @@
         private DataMapLayer<List<MyShip>> turnPredictionMap;
         private int earlyGameShipCount;
         private int earlyGameShipMinReturnedHalite;
+        private PushPathCalculator pushPathCalculator;
+        private int totalHaliteOnMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -800,6 +802,11 @@
                     {
                         pushFrom = pushPath.Pop();
                         var pushedShip = myPlayer.MyShipMap[pushFrom];
+                        if (pushedShip.DesiredNextPosition.HasValue && pushedShip.DesiredNextPosition != pushTo)
+                        {
+                            logger.LogDebug(pushedShip + " gets pushed to suboptimal " + pushTo + ".");
+                        }
+
                         Debug.Assert(pushedShip != null && !pushedShip.HasActionAssigned);
                         ProcessShipOrderCore(pushedShip, pushTo, false);
                         pushTo = pushFrom;
@@ -824,6 +831,7 @@
                 if (random.NextDouble() < tuningSettings.FugitiveShipConversionRatio)
                 {
                     ship.FugitiveForTurnCount = random.Next(tuningSettings.FugitiveShipMinTurnCount, tuningSettings.FugitiveShipMaxTurnCount + 1);
+                    logger.LogDebug(ship + " turns fugitive.");
                     isBlocked = false;
                 }
             }
@@ -901,7 +909,9 @@
             originHaliteDoubleMap = new DataMapLayer<double>(originHaliteMap.Width, originHaliteMap.Height);
             foreach (var position in originHaliteMap.AllPositions)
             {
-                originHaliteDoubleMap[position] = originHaliteMap[position];
+                int halite = originHaliteMap[position];
+                originHaliteDoubleMap[position] = halite;
+                totalHaliteOnMap += halite;
             }
 
             mapWidth = originHaliteMap.Width;
@@ -912,6 +922,16 @@
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
             allOpponentShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
             turnPredictionMap = new DataMapLayer<List<MyShip>>(mapWidth, mapHeight);
+
+            pushPathCalculator = new PushPathCalculator()
+            {
+                TuningSettings = tuningSettings,
+                Logger = logger,
+                MapBooster = mapBooster,
+                IsForbidden = IsForbidden,
+                MyPlayer = myPlayer,
+                TurnPredictionMap = turnPredictionMap
+            };
 
             haliteEngineInterface.Ready(Name);
         }
@@ -932,6 +952,8 @@
             originAdjustedHaliteMap = GetAdjustedHaliteMap();
             originOutboundMap = GetOutboundMap();
             earlyGameOriginOutboundMap = (myPlayer.Ships.Count <= 1 || earlyGameShipCount != 0) ? GetEarlyGameOutboundMap() : null;
+
+            logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
 
             return true;
         }
@@ -1020,127 +1042,7 @@
 
         private bool GetPushPath(MyShip vip, MyShip blocker)
         {
-            var pushPath = new Stack<Position>();
-            pushPath.Push(vip.OriginPosition);
-            bool canPush = GetPushPathRecursive(vip, blocker, pushPath);
-            if (canPush)
-            {
-                logger.LogDebug(vip + " considers pushing " + blocker + " (" + string.Join(" <- ", pushPath) + ").");
-            }
-            else
-            {
-                var predictedBlockerRole = PredictRoleNextTurnBeforeForcePush(blocker);
-                if (vip.Role.IsHigherPriorityThan(predictedBlockerRole))
-                {
-                    logger.LogDebug(vip + " considers switching places by force with " + blocker + ".");
-                    pushPath.Push(blocker.OriginPosition);
-                    pushPath.Push(vip.OriginPosition);
-                    canPush = true;
-                }
-            }
-
-            if (canPush)
-            {
-                blocker.PushPath = pushPath;
-                return true;
-            }
-
-            return false;
-        }
-
-        private ShipRole PredictRoleNextTurnBeforeForcePush(MyShip ship)
-        {
-            if (ship.Role == ShipRole.Harvester)
-            {
-                if (ship.Halite >= tuningSettings.HarvesterMinimumFillDefault)
-                {
-                    return ShipRole.Inbound;
-                }
-
-                return ship.Role;
-            }
-
-            if (!ship.Destination.HasValue
-                || ship.DistanceFromDestination != 0
-                || ship.Role == ShipRole.SpecialAgent)
-            {
-                return ship.Role;
-            }
-
-            switch (ship.Role)
-            {
-                case ShipRole.Builder:
-                    return ShipRole.Dropoff;
-                case ShipRole.Inbound:
-                    // No longer strictly necessary since early role changes got added to the main loop.
-                    return ShipRole.Outbound;
-                case ShipRole.Outbound:
-                    // No longer strictly necessary since early role changes got added to the main loop.
-                    return ShipRole.Harvester;
-                default:
-                    Debug.Fail("Shuld have been handled already: " + ship + ".");
-                    return ship.Role;
-            }
-        }
-
-        private bool GetPushPathRecursive(MyShip pusher, MyShip blocker, Stack<Position> pushPath)
-        {
-            Debug.Assert(!pusher.HasActionAssigned
-                && !blocker.HasActionAssigned
-                && originHaliteMap.WraparoundDistance(pusher.OriginPosition, blocker.OriginPosition) == 1);
-
-            if (!blocker.Destination.HasValue
-                || blocker.Destination == blocker.OriginPosition
-                || blocker.Map == null)
-            {
-                return false;
-            }
-
-            var allowedNeighboursOrdered = mapBooster
-                .GetNeighbours(blocker.OriginPosition)
-                .Where(position => !IsForbidden(blocker, position, true))
-                .OrderByDescending(position => blocker.MapDirection * blocker.Map[position]);
-
-            pushPath.Push(blocker.OriginPosition);
-            double originValue = blocker.MapDirection * blocker.Map[blocker.OriginPosition];
-            foreach (var position in allowedNeighboursOrdered)
-            {
-                double value = blocker.MapDirection * blocker.Map[position];
-                if (value < originValue)
-                {
-                    break;
-                }
-
-                Debug.Assert(myPlayer.MyShipMap[pusher.OriginPosition] == pusher);
-                var blockerBlocker = myPlayer.MyShipMap[position];
-                if (blockerBlocker != null)
-                {
-                    if (position == pusher.OriginPosition)
-                    {
-                        if (pushPath.Count == 2)
-                        {
-                            pushPath.Push(position);
-                            return true;
-                        }
-                    }
-                    else
-                    {
-                        if (pushPath.Contains(position))
-                        {
-                            continue;
-                        }
-
-                        bool canPush = GetPushPathRecursive(blocker, blockerBlocker, pushPath);
-                        if (canPush)
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            pushPath.Pop();
-            return false;
+            return pushPathCalculator.CanPush(vip, blocker);
         }
 
         private void AdjustHaliteForExtraction(MyShip ship)
@@ -1390,8 +1292,12 @@
         {
             foreach (var cellUpdateMessage in turnMessage.MapUpdates)
             {
-                originHaliteMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
-                originHaliteDoubleMap[cellUpdateMessage.Position] = cellUpdateMessage.Halite;
+                int oldHalite = originHaliteMap[cellUpdateMessage.Position];
+                int newHalite = cellUpdateMessage.Halite;
+                int haliteDifference = oldHalite - newHalite;
+                totalHaliteOnMap -= haliteDifference;
+                originHaliteMap[cellUpdateMessage.Position] = newHalite;
+                originHaliteDoubleMap[cellUpdateMessage.Position] = newHalite;
             }
 
             haliteMap = new DataMapLayer<int>(originHaliteMap);

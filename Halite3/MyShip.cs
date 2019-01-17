@@ -27,7 +27,7 @@ namespace Halite3
 
         public override string ToString()
         {
-            return "ship-" + Id + "-[OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + "]";
+            return "ship-" + Id + "-[OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + "]";
         }
     }
 }

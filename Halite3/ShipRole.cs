@@ -7,6 +7,7 @@
         Builder = 2,
         Inbound = 3,
         Harvester = 4,
-        Outbound = 5
+        Outbound = 5,
+        LowestPriority = 5
     }
 }

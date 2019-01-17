@@ -22,10 +22,17 @@
             File.AppendAllText(path, prefix + message + Environment.NewLine);
         }
 
-        public void LogError(string message)
+        public void LogInfo(string message)
         {
             string timestamp = DateTime.Now.ToString("o", CultureInfo.InvariantCulture);
             string prefix = timestamp + ": ";
+            File.AppendAllText(path, prefix + message + Environment.NewLine);
+        }
+
+        public void LogError(string message)
+        {
+            string timestamp = DateTime.Now.ToString("o", CultureInfo.InvariantCulture);
+            string prefix = timestamp + ": !!! ";
             File.AppendAllText(path, prefix + message + Environment.NewLine);
         }
     }

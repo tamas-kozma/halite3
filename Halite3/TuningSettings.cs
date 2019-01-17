@@ -36,7 +36,7 @@
         public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.5d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.5d;
 
-        public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 5;
+        public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;
         public double FugitiveShipConversionRatio { get; set; } = 0.5d;
         public int FugitiveShipMinTurnCount { get; set; } = 2;
         public int FugitiveShipMaxTurnCount { get; set; } = 4;
