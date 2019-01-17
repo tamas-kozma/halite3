@@ -142,6 +142,11 @@
                     ship.IsEarlyGameShip = true;
                 }
 
+                if (ship.DetourTurnCount > 0)
+                {
+                    ship.DetourTurnCount--;
+                }
+
                 shipQueue.Add(ship);
             }
 
@@ -245,7 +250,14 @@
                         }
                         else
                         {
-                            outboundMap = originOutboundMap;
+                            if (ship.DetourTurnCount == 0)
+                            {
+                                outboundMap = originOutboundMap;
+                            }
+                            else
+                            {
+                                outboundMap = originDetourOutboundMap;
+                            }
                             //logger.LogDebug(ship + " gets originOutboundMap (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                     }
@@ -258,7 +270,14 @@
                         }
                         else
                         {
-                            outboundMap = GetOutboundMap(MapSetKind.Default);
+                            if (ship.DetourTurnCount == 0)
+                            {
+                                outboundMap = GetOutboundMap(MapSetKind.Default);
+                            }
+                            else
+                            {
+                                outboundMap = GetOutboundMap(MapSetKind.Detour);
+                            }
                             //logger.LogDebug(ship + " gets GetOutboundMap() (isEarly = " + outboundMap.IsEarlyGameMap + ").");
                         }
                     }
@@ -273,7 +292,8 @@
                     break;
 
                 case ShipRole.Inbound:
-                    ship.Map = originReturnMap.PathCosts;
+                    var inboundMap = (ship.DetourTurnCount == 0) ? originReturnMap.PathCosts : originDetourReturnMap.PathCosts;
+                    ship.Map = inboundMap;
                     ship.MapDirection = -1;
                     break;
 
@@ -636,6 +656,16 @@
                         SetShipRole(ship, ShipRole.Inbound);
                         return;
                     }
+                }
+            }
+
+            if (isBlockedByOpponent &&
+                (ship.Role == ShipRole.Inbound || ship.Role == ShipRole.Outbound))
+            {
+                if (ship.DetourTurnCount == 0)
+                {
+                    ship.DetourTurnCount = tuningSettings.DetourTurnCount;
+                    return;
                 }
             }
 

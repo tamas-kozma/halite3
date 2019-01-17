@@ -43,11 +43,6 @@
 
         public void LogError(string message)
         {
-            if (IsMuted)
-            {
-                return;
-            }
-
             string timestamp = DateTime.Now.ToString("o", CultureInfo.InvariantCulture);
             string prefix = timestamp + ": !!! ";
             File.AppendAllText(path, prefix + message + Environment.NewLine);

@@ -43,6 +43,7 @@
         public double EarlyGameTargetShipRatio { get; set; } = 0.8d;
         public bool IsEarlyGameFeatureEnabled { get; set; } = true;
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
+        public int DetourTurnCount { get; set; } = 5;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public double OpponentHarvestAreaMapHaliteBonusMultiplier { get; set; } = 1.5d;
