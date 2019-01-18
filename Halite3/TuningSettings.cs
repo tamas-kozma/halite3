@@ -24,7 +24,7 @@
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
         public int OutboundMapDropoffAvoidanceRadius { get; set; } = 2;
 
-        public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.9d;
+        public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.85d;
         public int OutboundShipSwitchToOriginMapDistance { get; set; } = 2;
         public int OutboundShipAntiSquarePathMinDifference { get; set; } = 3;
 
@@ -33,7 +33,7 @@
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
-        public double HarvesterToOutboundConversionMaximumHaliteRatio { get; set; } = 0.5d;
+        public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 1.5d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.5d;
 
         public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;

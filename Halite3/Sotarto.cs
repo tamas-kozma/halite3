@@ -47,7 +47,6 @@
         private BitMapLayer permanentForbiddenCellsMap;
         private BitMapLayer originForbiddenCellsMap;
         private MapBooster mapBooster;
-        private DataMapLayer<double> originHaliteDoubleMap;
         private bool areHaliteBasedMapsDirty;
         private int blockedShipCount;
         private DataMapLayer<OpponentShip> allOpponentShipMap;
@@ -57,6 +56,8 @@
         private PushPathCalculator pushPathCalculator;
         private int totalHaliteOnMap;
         private OpponentHarvestAreaMap opponentHarvestAreaMap;
+        private int harvesterJobsAssignedCount;
+        private double meanHarvesterJobTime;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -147,6 +148,9 @@
                     ship.DetourTurnCount--;
                 }
 
+                harvesterJobsAssignedCount = 0;
+                meanHarvesterJobTime = 0;
+
                 shipQueue.Add(ship);
             }
 
@@ -159,9 +163,10 @@
             Debug.Assert(!areHaliteBasedMapsDirty);
             while (shipQueue.Count != 0)
             {
-                bool haliteChanged = areHaliteBasedMapsDirty;
-                //logger.LogDebug("haliteChanged = " + haliteChanged);
+                var currentOutboundMap = GetOutboundMap(MapSetKind.Default);
+                shipTurnOrderComparer.OutboundMap = currentOutboundMap;
 
+                bool haliteChanged = areHaliteBasedMapsDirty;
                 var bestShip = shipQueue[0];
                 int bestIndex = 0;
                 for (int i = 1; i < shipQueue.Count; i++)
@@ -200,8 +205,6 @@
                     }
                 }
 
-                //logger.LogDebug(bestShip.ToString());
-
                 if (bestShip.Destination.HasValue && bestShip.Position == bestShip.Destination.Value)
                 {
                     if (bestShip.Role == ShipRole.Outbound)
@@ -215,6 +218,18 @@
                     {
                         // With this the inbound handler code doesn't need a special case for a ship that got pushed away from a dropoff.
                         SetShipRole(bestShip, ShipRole.Outbound);
+                    }
+                }
+
+                if (bestShip.Role == ShipRole.Harvester)
+                {
+                    double jobTime = currentOutboundMap.GetEstimatedJobTimeInNeighbourhood(bestShip.Position, bestShip.Halite);
+                    if (jobTime > 0)
+                    {
+                        meanHarvesterJobTime = (meanHarvesterJobTime * harvesterJobsAssignedCount + jobTime) / (harvesterJobsAssignedCount + 1);
+                        harvesterJobsAssignedCount++;
+
+                        logger.LogDebug(bestShip + ": job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", count = " + harvesterJobsAssignedCount);
                     }
                 }
 
@@ -287,7 +302,7 @@
                     break;
 
                 case ShipRole.Harvester:
-                    ship.Map = originHaliteDoubleMap;
+                    ship.Map = originAdjustedHaliteMap.Values;
                     ship.MapDirection = 1;
                     break;
 
@@ -416,18 +431,21 @@
             if (!ship.HasFoundTooLittleHaliteToHarvestThisTurn)
             {
                 var outboundMap = GetOutboundMap(MapSetKind.Default);
-                double pathValueAtBestPosition = outboundMap.OutboundPaths[neighbourhoodInfo.BestPosition];
-                if (pathValueAtBestPosition != 0)
+                double jobTime = outboundMap.GetEstimatedJobTimeInNeighbourhood(ship.OriginPosition, ship.Halite);
+                if (jobTime > 0)
                 {
-                    double bestHaliteToPathValueRatio = neighbourhoodInfo.BestValue / pathValueAtBestPosition;
-                    bool isPointlessToHarvest = (bestHaliteToPathValueRatio < tuningSettings.HarvesterToOutboundConversionMaximumHaliteRatio);
-                    if (isPointlessToHarvest)
+                    if (meanHarvesterJobTime != 0)
                     {
-                        ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
-                        var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
-                        logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (pathValueAtBestPosition = " + pathValueAtBestPosition + ", bestValue = " + neighbourhoodInfo.BestValue + ").");
-                        SetShipRole(ship, newRole);
-                        return;
+                        double jobTimeRatio = jobTime / meanHarvesterJobTime;
+                        bool isPointlessToHarvest = (jobTimeRatio >= tuningSettings.HarvesterToOutboundConversionMinJobTimeRatio);
+                        if (isPointlessToHarvest)
+                        {
+                            ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
+                            var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
+                            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", halite = " + neighbourhoodInfo.BestValue + ", adjusted halite = " + outboundMap.AdjustedHaliteMap.Values[neighbourhoodInfo.BestPosition] + ").");
+                            SetShipRole(ship, newRole);
+                            return;
+                        }
                     }
                 }
             }
@@ -466,7 +484,7 @@
 
             bool ShouldHarvestAt(Position position)
             {
-                int halite = originHaliteMap[position];
+                int halite = (int)originAdjustedHaliteMap.Values[position];
                 int extractableIgnoringCapacity = GetExtractedAmountIgnoringCapacity(halite);
                 if (extractableIgnoringCapacity == 0)
                 {
@@ -522,9 +540,8 @@
             {
                 // TODO: Can it be the same?!
                 int turnLimit = 2 + dropoffDistanceDifference;
-                int originActualHalite = originHaliteMap[ship.OriginPosition];
-                int remainingAfterTurnLimit = (int)(Math.Pow(1 - GameConstants.ExtractRatio, turnLimit) * originActualHalite);
-                int inShipAfterTurnLimit = ship.Halite + (originActualHalite - remainingAfterTurnLimit);
+                int remainingAfterTurnLimit = (int)(Math.Pow(1 - GameConstants.ExtractRatio, turnLimit) * originHalite);
+                int inShipAfterTurnLimit = (int)(ship.Halite + (originHalite - remainingAfterTurnLimit));
                 if (inShipAfterTurnLimit >= GameConstants.ShipCapacity)
                 {
                     // If the ship would be full staying where it is in the same amount of time as it would take to move, harvest and 
@@ -585,10 +602,15 @@
                 {
                     bool hasArrived = false;
                     double originAdjustedHalite = originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition];
-                    if (neighbourhoodInfo.OriginValue != 0)
+                    double destinationAdjustedHalite = originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition];
+                    if (destinationAdjustedHalite != 0)
                     {
-                        double originHaliteToPathValueRatio = originAdjustedHalite / neighbourhoodInfo.OriginValue;
-                        hasArrived = (originHaliteToPathValueRatio >= tuningSettings.OutboundShipToHarvesterConversionMinimumHaliteRatio);
+                        double haliteRatio = originAdjustedHalite / destinationAdjustedHalite;
+                        hasArrived = (haliteRatio >= tuningSettings.OutboundShipToHarvesterConversionMinimumHaliteRatio);
+                    }
+                    else
+                    {
+                        hasArrived = true;
                     }
 
                     if (!hasArrived)
@@ -598,7 +620,7 @@
                     }
                 }
 
-                logger.LogDebug("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", halite = " + originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
+                logger.LogDebug("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", adjusted halite = " + originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
                 SetShipRole(ship, ShipRole.Harvester);
                 return;
             }
@@ -776,7 +798,7 @@
                         Position desiredNextPosition;
                         if (ship.Role == ShipRole.Harvester)
                         {
-                            if (HarvesterWantsToMoveTo(ship, originHaliteDoubleMap[ship.OriginPosition], position, originHaliteDoubleMap[position]))
+                            if (HarvesterWantsToMoveTo(ship, originAdjustedHaliteMap.Values[ship.OriginPosition], position, originAdjustedHaliteMap.Values[position]))
                             {
                                 desiredNextPosition = position;
                             }
@@ -970,16 +992,14 @@
             }
 
             originHaliteMap = new DataMapLayer<int>(gameInitializationMessage.MapWithHaliteAmounts);
-            originHaliteDoubleMap = new DataMapLayer<double>(originHaliteMap.Width, originHaliteMap.Height);
+            mapWidth = originHaliteMap.Width;
+            mapHeight = originHaliteMap.Height;
             foreach (var position in originHaliteMap.AllPositions)
             {
                 int halite = originHaliteMap[position];
-                originHaliteDoubleMap[position] = halite;
                 totalHaliteOnMap += halite;
             }
 
-            mapWidth = originHaliteMap.Width;
-            mapHeight = originHaliteMap.Height;
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             permanentForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
@@ -1028,9 +1048,9 @@
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
             PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
-            PaintMap(originAdjustedHaliteMap.ValuesMinusReturnCost, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
+            PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
             PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
-            PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 1000);
+            PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 250);
             PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");
 
             logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
@@ -1410,7 +1430,6 @@
                 int haliteDifference = newHalite - oldHalite;
                 totalHaliteOnMap += haliteDifference;
                 originHaliteMap[position] = newHalite;
-                originHaliteDoubleMap[position] = newHalite;
 
                 if (haliteDifference < 0 && GetFromAllOpponentShipMap(position) != null)
                 {

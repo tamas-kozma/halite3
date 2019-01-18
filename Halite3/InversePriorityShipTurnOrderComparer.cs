@@ -1,5 +1,6 @@
 ﻿namespace Halite3
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
 
@@ -13,6 +14,8 @@
             this.dummyMap = dummyMap;
         }
 
+        public OutboundMap OutboundMap;
+
         public int Compare(MyShip x, MyShip y)
         {
             if (x.Role.IsHigherPriorityThan(y.Role))
@@ -25,22 +28,35 @@
             }
 
             int aspectComparisonResult;
-            if (x.Destination.HasValue || y.Destination.HasValue)
+            Debug.Assert(x.Role == y.Role);
+            if (x.Role == ShipRole.Harvester)
             {
-                if (!x.Destination.HasValue)
+                double xJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(x.OriginPosition, x.Halite);
+                double yJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(y.OriginPosition, y.Halite);
+                if (xJobTime > 0 && yJobTime > 0 && xJobTime != yJobTime)
                 {
-                    return 1;
+                    return Math.Sign(xJobTime - yJobTime);
                 }
-                else if (!y.Destination.HasValue)
+            }
+            else
+            {
+                if (x.Destination.HasValue || y.Destination.HasValue)
                 {
-                    return -1;
-                }
-                else
-                {
-                    aspectComparisonResult = x.DistanceFromDestination - y.DistanceFromDestination;
-                    if (aspectComparisonResult != 0)
+                    if (!x.Destination.HasValue)
                     {
-                        return aspectComparisonResult;
+                        return 1;
+                    }
+                    else if (!y.Destination.HasValue)
+                    {
+                        return -1;
+                    }
+                    else
+                    {
+                        aspectComparisonResult = x.DistanceFromDestination - y.DistanceFromDestination;
+                        if (aspectComparisonResult != 0)
+                        {
+                            return aspectComparisonResult;
+                        }
                     }
                 }
             }
