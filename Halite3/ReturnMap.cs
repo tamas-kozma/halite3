@@ -1,6 +1,7 @@
 ﻿namespace Halite3
 {
     using System.Diagnostics;
+    using System.Linq;
 
     public sealed class ReturnMap
     {
@@ -20,7 +21,7 @@
 
         public void Calculate()
         {
-            dropoffPositions = MyPlayer.DropoffPositions.ToArray();
+            dropoffPositions = MyPlayer.Dropoffs.Select(dropoff => dropoff.Position).ToArray();
             distanceFromDropoffMap = MyPlayer.DistanceFromDropoffMap;
 
             var pathCosts = new DataMapLayer<double>(HaliteMap.Width, HaliteMap.Height);

@@ -18,7 +18,7 @@
         /// <summary>
         /// Including the shipyard.
         /// </summary>
-        public List<Position> DropoffPositions { get; protected set; } = new List<Position>();
+        public List<Dropoff> Dropoffs { get; protected set; } = new List<Dropoff>();
 
         public List<Ship> Ships { get; protected set; } = new List<Ship>();
 
@@ -35,7 +35,15 @@
             Id = playerMessage.PlayerId;
 
             ShipyardPosition = playerMessage.ShipyardPosition;
-            DropoffPositions.Add(ShipyardPosition);
+            var shipyardDropoff = new Dropoff(this)
+            {
+                Age = 0,
+                Position = ShipyardPosition,
+                Id = "shipyard",
+                IsShipyard = true
+            };
+
+            Dropoffs.Add(shipyardDropoff);
 
             int mapWidth = initialHaliteMap.Width;
             int mapHeight = initialHaliteMap.Height;
@@ -71,8 +79,9 @@
             foreach (var position in DistanceFromDropoffMap.AllPositions)
             {
                 int minDistance = int.MaxValue;
-                foreach (var dropoffPosition in DropoffPositions)
+                foreach (var dropoff in Dropoffs)
                 {
+                    var dropoffPosition = dropoff.Position;
                     int distance = DistanceFromDropoffMap.WraparoundDistance(position, dropoffPosition);
                     if (distance < minDistance)
                     {
@@ -84,7 +93,52 @@
             }
         }
 
-        protected abstract void HandleDropoffMessages(PlayerUpdateMessage playerMessage);
+        protected virtual void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
+        {
+            var messagesById = playerMessage.Dropoffs.ToDictionary(message => message.DropoffId);
+            foreach (var dropoff in Dropoffs)
+            {
+                if (!dropoff.IsPlanned)
+                {
+                    dropoff.Age++;
+                }
+
+                if (dropoff.IsShipyard || dropoff.IsPlanned)
+                {
+                    continue;
+                }
+
+                if (!messagesById.Remove(dropoff.Id, out var message))
+                {
+                    throw new BotFailedException();
+                }
+            }
+
+            foreach (var message in messagesById.Values)
+            {
+                var dropoff = Dropoffs.FirstOrDefault(candidate => candidate.Id == message.DropoffId);
+                if (dropoff == null)
+                {
+                    TotalReturnedHalite += GameConstants.DropoffCost;
+                    dropoff = new Dropoff(this)
+                    {
+                        Id = message.DropoffId,
+                        Age = 1,
+                        IsShipyard = false,
+                        Position = message.Position
+                    };
+
+                    Dropoffs.Add(dropoff);
+                }
+                else
+                {
+                    Debug.Assert(dropoff.IsPlanned && dropoff.Position == message.Position);
+                    dropoff.Age = 1;
+                }
+
+                UpdateDropoffDistances();
+            }
+        }
 
         protected virtual void HandleShipMessages(PlayerUpdateMessage playerMessage)
         {

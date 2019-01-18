@@ -1425,9 +1425,9 @@
             var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
             foreach (var player in opponentPlayers)
             {
-                foreach (var dropoffPosition in player.DropoffPositions)
+                foreach (var dropoff in player.Dropoffs)
                 {
-                    permanentForbiddenCellsMap.GetDiscCells(dropoffPosition, tuningSettings.MapOpponentDropoffNoGoZoneRadius, noGoDisc);
+                    permanentForbiddenCellsMap.GetDiscCells(dropoff.Position, tuningSettings.MapOpponentDropoffNoGoZoneRadius, noGoDisc);
                     foreach (var position in noGoDisc)
                     {
                         forbiddenCellsMap[position] = true;

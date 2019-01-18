@@ -25,19 +25,6 @@
             return ship;
         }
 
-        protected override void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
-        {
-            foreach (var message in playerMessage.Dropoffs)
-            {
-                if (!DropoffPositions.Contains(message.Position))
-                {
-                    TotalReturnedHalite += GameConstants.DropoffCost;
-                    DropoffPositions.Add(message.Position);
-                    UpdateDropoffDistances();
-                }
-            }
-        }
-
         protected override void HandleSunkShip(Ship ship)
         {
             Debug.Assert(OpponentShipMap[ship.Position] == ship);

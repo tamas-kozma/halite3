@@ -10,6 +10,7 @@
         public List<MyShip> MyShips { get; private set; } = new List<MyShip>();
         public DataMapLayer<MyShip> MyShipMap { get; private set; }
         public MyShip NewShip { get; private set; }
+        public List<Dropoff> NewDropoffs { get; private set; } = new List<Dropoff>();
 
         public override void Initialize(PlayerInitializationMessage playerMessage, DataMapLayer<int> initialHaliteMap)
         {
@@ -37,8 +38,21 @@
 
         public void BuildDropoff(MyShip builder)
         {
+            Debug.Assert(Halite >= GameConstants.DropoffCost && !builder.HasActionAssigned);
+
+            Halite -= GameConstants.DropoffCost;
+            var dropoff = new Dropoff(this)
+            {
+                Id = null,
+                Age = 0,
+                IsShipyard = false,
+                Position = builder.Position
+            };
+
+            Dropoffs.Add(dropoff);
+            NewDropoffs.Add(dropoff);
+
             UpdateDropoffDistances();
-            throw new NotImplementedException();
         }
 
         public MyShip GetFromMyShipMap(Position position)
@@ -56,24 +70,27 @@
 
         protected override void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
         {
-            if (playerMessage.Dropoffs.Length + 1 != DropoffPositions.Count)
+            foreach (var dropoff in NewDropoffs)
             {
-                throw new BotFailedException();
-            }
-
-            foreach (var position in DropoffPositions)
-            {
-                if (position == ShipyardPosition)
+                var message = playerMessage.Dropoffs.FirstOrDefault(candidate => candidate.Position == dropoff.Position);
+                if (message == null)
                 {
-                    continue;
+                    // The builder sunk, assuming that money is not lost in this case.
+                    Halite += GameConstants.DropoffCost;
+                    TotalReturnedHalite -= GameConstants.DropoffCost;
+                    Dropoffs.Remove(dropoff);
                 }
-
-                var dropoffMessage = playerMessage.Dropoffs.FirstOrDefault(message => message.Position == position);
-                if (dropoffMessage == null)
+                else
                 {
-                    throw new BotFailedException();
+                    dropoff.Id = message.DropoffId;
                 }
             }
+
+            NewDropoffs.Clear();
+
+            int dropoffCountBefore = Dropoffs.Count;
+            base.HandleDropoffMessages(playerMessage);
+            Debug.Assert(dropoffCountBefore == Dropoffs.Count);
         }
 
         protected override void HandleShipMessages(PlayerUpdateMessage playerMessage)

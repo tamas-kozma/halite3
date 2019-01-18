@@ -141,9 +141,9 @@
                     : 0;
             }
 
-            foreach (var position in MyPlayer.DropoffPositions)
+            foreach (var dropoff in MyPlayer.Dropoffs)
             {
-                harvestAreaMap[position] = 0;
+                harvestAreaMap[dropoff.Position] = 0;
             }
         }
     }
