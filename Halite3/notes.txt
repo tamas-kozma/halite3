@@ -89,3 +89,11 @@
 ** Outbound ships trying to go behind enemy lines get stuck
 * The new HasFoundTooLittleHaliteToHarvestThisTurn is good to have for safety, but should not be necessary
 ** Find a better way to fix the problem introduced by the opponent harvest area bonuses
+* Change the outbound map to indicate how much time it will take starting from a cell to get a full load home
+** Step cost multipliers or harvest time multipliers can then be used to tune it if needed
+* Harvesters' pointless to harvest logic is broken, since they don't have up to date maps at that point
+** But after the above change, I'll need to update it anyway
+** Change harvesters to be ordered according to halite amount at their desired positions
+** Adjust these halite amounts for inspiredness within opponent harvest zones
+** For each harvester, based on the halite amounts (including inspiration bonus) and return path distance, estimate job duration
+** For each harvester, if their jobs take a lot longer than the average so long, turn into outbound again

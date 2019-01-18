@@ -41,6 +41,14 @@
             throw new NotImplementedException();
         }
 
+        public MyShip GetFromMyShipMap(Position position)
+        {
+            var ship = MyShipMap[position];
+            Debug.Assert(ship == null || (ship.Position == position && (ship.HasActionAssigned || ship.OriginPosition == position)), "position=" + position + ", ship=" + ship);
+            Debug.Assert(ship == ShipMap[position], "ship=" + ship + ", myPlayer.ShipMap[position]=" + ShipMap[position]);
+            return ship;
+        }
+
         public override string ToString()
         {
             return "me";

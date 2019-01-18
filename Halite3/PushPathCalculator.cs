@@ -20,7 +20,7 @@
             bool canPush = CanPushRecursive(vip, vip, blocker, pushPath);
             if (canPush)
             {
-                Logger.LogDebug(vip + " considers pushing " + blocker + " (" + string.Join(" <- ", pushPath) + ").");
+                Logger.LogDebug(vip + " considers pushing " + blocker + " " + PushPathToString(pushPath) + ".");
             }
 
             if (canPush)
@@ -85,9 +85,16 @@
                     continue;
                 }
 
-                var blockerBlocker = MyPlayer.MyShipMap[candidate.Position];
+                var blockerBlocker = MyPlayer.GetFromMyShipMap(candidate.Position);
                 if (blockerBlocker == null)
                 {
+                    pushPath.Push(candidate.Position);
+                    return true;
+                }
+
+                if (blockerBlocker == mainVip)
+                {
+                    Debug.Assert(mainVip == vip && pushPath.Count == 2);
                     pushPath.Push(candidate.Position);
                     return true;
                 }
@@ -101,6 +108,16 @@
 
             pushPath.Pop();
             return false;
+        }
+
+        private static string PushPathToString(Stack<Position> pushPath)
+        {
+            if (pushPath == null)
+            {
+                return "(NULL)";
+            }
+
+            return "(" + string.Join(" <- ", pushPath) + ")";
         }
 
         private class Candidate : IComparable<Candidate>
@@ -135,7 +152,7 @@
                     return false;
                 }
 
-                Debug.Assert(Vip != MainVip || pushPath.Count == 2);
+                Debug.Assert(Vip != MainVip || pushPath.Count == 2, "Vip=" + Vip + ", MainVip=" + MainVip + ", PushPath=" + PushPathToString(pushPath));
                 if (Vip != MainVip && pushPath.Contains(Position))
                 {
                     return false;
@@ -183,8 +200,8 @@
                 if (Blocker.Role == ShipRole.Outbound
                     && Calculator.MyPlayer.DistanceFromDropoffMap[Blocker.OriginPosition] == 0)
                 {
-                    var blockerBlocker = Calculator.MyPlayer.MyShipMap[Position];
-                    var otherBlockerBLocker = Calculator.MyPlayer.MyShipMap[other.Position];
+                    var blockerBlocker = Calculator.MyPlayer.GetFromMyShipMap(Position);
+                    var otherBlockerBLocker = Calculator.MyPlayer.GetFromMyShipMap(other.Position);
                     if (blockerBlocker == null && otherBlockerBLocker != null)
                     {
                         return -1;

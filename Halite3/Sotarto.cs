@@ -609,10 +609,16 @@
         private void AssignOrderToBlockedShip(MyShip ship, NeighbourhoodInfo neighbourhoodInfo)
         {
             Debug.Assert(!ship.HasActionAssigned);
-            Debug.Assert(neighbourhoodInfo.BestPosition != ship.OriginPosition);
+            Debug.Assert(ship.DetourTurnCount > 0 || neighbourhoodInfo.BestPosition != ship.OriginPosition);
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
             bool isBlockedByOpponent = (originForbiddenCellsMap[desiredNeighbour] && myPlayer.ShipMap[desiredNeighbour] == null);
+            if (ship.DetourTurnCount > 0 && desiredNeighbour == ship.OriginPosition)
+            {
+                ProcessShipOrder(ship, ship.OriginPosition, true);
+                return;
+            }
+
             if (ship.Role == ShipRole.Outbound)
             {
                 if (ship.Destination.HasValue && ship.DistanceFromDestination == 1 
@@ -844,7 +850,7 @@
 
             if (position != ship.OriginPosition)
             {
-                var blocker = myPlayer.MyShipMap[position];
+                var blocker = myPlayer.GetFromMyShipMap(position);
                 if (blocker != null)
                 {
                     Debug.Assert(blocker.PushPath != null && blocker.PushPath.Count >= 3 && blocker.PushPath.Last() == ship.OriginPosition, "ship = " + ship + ", blocker = " + blocker + ", push path = " + string.Join(" <- ", blocker.PushPath));
@@ -855,16 +861,16 @@
 
                     Position pushFrom;
                     Position pushTo = pushPath.Pop();
-                    Debug.Assert(pushTo == ship.OriginPosition || myPlayer.MyShipMap[pushTo] == null, "Push-to position has unexpected ship (" + myPlayer.MyShipMap[pushTo] + ".");
+                    Debug.Assert(pushTo == ship.OriginPosition || myPlayer.GetFromMyShipMap(pushTo) == null, "Push-to position has unexpected ship (" + myPlayer.GetFromMyShipMap(pushTo) + ".");
                     while (pushPath.Count >= 2)
                     {
                         pushFrom = pushPath.Pop();
-                        var pushedShip = myPlayer.MyShipMap[pushFrom];
+                        var pushedShip = myPlayer.GetFromMyShipMap(pushFrom);
                         if (pushedShip.DesiredNextPosition.HasValue && pushedShip.DesiredNextPosition != pushTo)
                         {
                             logger.LogDebug(pushedShip + " gets pushed to suboptimal " + pushTo + ".");
                         }
-
+                        
                         Debug.Assert(pushedShip != null && !pushedShip.HasActionAssigned);
                         ProcessShipOrderCore(pushedShip, pushTo, false);
                         pushTo = pushFrom;
@@ -1078,7 +1084,7 @@
                     // And being bold in general sounds like a good idea.
                     if (ship.Role == ShipRole.Harvester || ship.Role == ShipRole.Outbound)
                     {
-                        var shipAtPosition = myPlayer.MyShipMap[position];
+                        var shipAtPosition = myPlayer.GetFromMyShipMap(position);
                         bool isForbiddenBecauseOfOwnShip = (shipAtPosition != null && shipAtPosition.HasActionAssigned);
                         canBeIgnored = !isForbiddenBecauseOfOwnShip;
                     }
@@ -1092,7 +1098,7 @@
 
             if (!ignoreBlocker)
             {
-                var blocker = myPlayer.MyShipMap[position];
+                var blocker = myPlayer.GetFromMyShipMap(position);
                 if (blocker != null)
                 {
                     Debug.Assert(blocker != ship && !blocker.HasActionAssigned);
