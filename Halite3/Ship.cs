@@ -1,6 +1,6 @@
 ﻿namespace Halite3
 {
-    public class Ship
+    public abstract class Ship
     {
         public Ship(Player owner)
         {

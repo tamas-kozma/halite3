@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
-
-namespace Halite3
+﻿namespace Halite3
 {
+    using System.Collections.Generic;
+    using System.Diagnostics;
+
     public sealed class MyShip : Ship
     {
         public MyShip(MyPlayer myPlayer)
@@ -26,6 +27,13 @@ namespace Halite3
         public bool IsEarlyGameShip { get; set; }
         public bool HasFoundTooLittleHaliteToHarvestThisTurn { get; set; }
         public int DetourTurnCount { get; set; }
+
+        public void SetPosition(Position newPosition)
+        {
+            Debug.Assert(Position == OriginPosition);
+            PreviousPosition = Position;
+            Position = newPosition;
+        }
 
         public override string ToString()
         {

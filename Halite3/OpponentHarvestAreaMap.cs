@@ -10,7 +10,7 @@
         public TuningSettings TuningSettings;
         public Logger Logger;
         public MapBooster MapBooster;
-        public DataMapLayer<Ship> AllOpponentShipMap;
+        public DataMapLayer<OpponentShip> AllOpponentShipMap;
 
         public readonly Dictionary<Position, ScentInfo> HarvestAreaCenters;
         public readonly DataMapLayer<double> HaliteMultiplierMap;

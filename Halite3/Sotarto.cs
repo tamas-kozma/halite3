@@ -25,7 +25,7 @@
         private GameInitializationMessage gameInitializationMessage;
         private TurnMessage turnMessage;
         private MyPlayer myPlayer;
-        private Player[] opponentPlayers;
+        private OpponentPlayer[] opponentPlayers;
         private DataMapLayer<int> originHaliteMap;
         private DataMapLayer<int> haliteMap;
         private ReturnMap dangerousReturnMap;
@@ -50,7 +50,7 @@
         private DataMapLayer<double> originHaliteDoubleMap;
         private bool areHaliteBasedMapsDirty;
         private int blockedShipCount;
-        private DataMapLayer<Ship> allOpponentShipMap;
+        private DataMapLayer<OpponentShip> allOpponentShipMap;
         private DataMapLayer<List<MyShip>> turnPredictionMap;
         private int earlyGameShipCount;
         private int earlyGameShipMinReturnedHalite;
@@ -612,7 +612,7 @@
             Debug.Assert(ship.DetourTurnCount > 0 || neighbourhoodInfo.BestPosition != ship.OriginPosition);
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
-            bool isBlockedByOpponent = (originForbiddenCellsMap[desiredNeighbour] && myPlayer.ShipMap[desiredNeighbour] == null);
+            bool isBlockedByOpponent = (originForbiddenCellsMap[desiredNeighbour] && myPlayer.GetFromMyShipMap(desiredNeighbour) == null);
             if (ship.DetourTurnCount > 0 && desiredNeighbour == ship.OriginPosition)
             {
                 ProcessShipOrder(ship, ship.OriginPosition, true);
@@ -648,7 +648,7 @@
 
                     // No opponent ship is currently there.
                     // If it is there, but predicted to be moving away, then the spot will not be forbidden.
-                    if (allOpponentShipMap[desiredNeighbour] == null)
+                    if (GetFromAllOpponentShipMap(desiredNeighbour) == null)
                     {
                         // Geronimo!
                         ProcessShipOrder(ship, desiredNeighbour, false);
@@ -885,7 +885,7 @@
 
         private void ProcessShipOrderCore(MyShip ship, Position position, bool isBlocked)
         {
-            ship.Position = position;
+            ship.SetPosition(position);
             forbiddenCellsMap[position] = true;
             ship.HasActionAssigned = true;
 
@@ -949,7 +949,7 @@
 
             string myPlayerId = gameInitializationMessage.MyPlayerId;
             myPlayer = new MyPlayer();
-            opponentPlayers = new Player[gameInitializationMessage.Players.Length - 1];
+            opponentPlayers = new OpponentPlayer[gameInitializationMessage.Players.Length - 1];
             int opponentIndex = 0;
             foreach (var playerInitializationMessage in gameInitializationMessage.Players)
             {
@@ -960,8 +960,8 @@
                 }
                 else
                 {
-                    player = new Player();
-                    opponentPlayers[opponentIndex] = player;
+                    player = new OpponentPlayer();
+                    opponentPlayers[opponentIndex] = player as OpponentPlayer;
                     opponentIndex++;
                 }
 
@@ -984,7 +984,7 @@
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             permanentForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
-            allOpponentShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
+            allOpponentShipMap = new DataMapLayer<OpponentShip>(mapWidth, mapHeight);
             turnPredictionMap = new DataMapLayer<List<MyShip>>(mapWidth, mapHeight);
 
             pushPathCalculator = new PushPathCalculator()
@@ -1047,8 +1047,9 @@
             {
                 player.Update(turnMessage);
 
-                foreach (var ship in player.Ships)
+                foreach (var ship in player.OpponentShips)
                 {
+                    Debug.Assert(allOpponentShipMap[ship.Position] == null);
                     allOpponentShipMap[ship.Position] = ship;
                 }
             }
@@ -1404,7 +1405,7 @@
                 originHaliteMap[position] = newHalite;
                 originHaliteDoubleMap[position] = newHalite;
 
-                if (haliteDifference < 0 && allOpponentShipMap[position] != null)
+                if (haliteDifference < 0 && GetFromAllOpponentShipMap(position) != null)
                 {
                     opponentHarvestPositionList.Add(position);
                 }
@@ -1476,6 +1477,14 @@
             }
 
             originForbiddenCellsMap = new BitMapLayer(forbiddenCellsMap);
+        }
+
+        private OpponentShip GetFromAllOpponentShipMap(Position position)
+        {
+            var ship = allOpponentShipMap[position];
+            Debug.Assert(ship == null || ship.Position == position);
+            Debug.Assert(ship == null || (ship.Owner as OpponentPlayer).GetFromOpponentShipMap(position) == ship);
+            return ship;
         }
 
         [Conditional("DEBUG")]

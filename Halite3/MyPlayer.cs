@@ -78,7 +78,6 @@
 
         protected override void HandleShipMessages(PlayerUpdateMessage playerMessage)
         {
-            //Logger.LogDebug("HandleShipMessages: NewShip = " + NewShip);
             if (NewShip != null)
             {
                 var newShipMessage = playerMessage.Ships.FirstOrDefault(shipMessage => shipMessage.Position == NewShip.Position);
@@ -91,6 +90,7 @@
                     NewShip.Id = newShipMessage.ShipId;
                     Ships.Add(NewShip);
                     MyShips.Add(NewShip);
+                    Debug.Assert(ShipMap[NewShip.Position] == null && MyShipMap[NewShip.Position] == null);
                     ShipMap[NewShip.Position] = NewShip;
                     MyShipMap[NewShip.Position] = NewShip;
                 }
@@ -103,12 +103,16 @@
 
         protected override void HandleSunkShip(Ship ship)
         {
+            Debug.Assert(MyShipMap[ship.Position] == ship);
             MyShipMap[ship.Position] = null;
-            MyShips.Remove(ship as MyShip);
+            bool removed = MyShips.Remove(ship as MyShip);
+            Debug.Assert(removed);
         }
 
         protected override void HandleAliveShip(Ship ship, ShipMessage shipMessage)
         {
+            ship.Halite = shipMessage.Halite;
+
             var myShip = ship as MyShip;
             if (ship.Position != shipMessage.Position)
             {

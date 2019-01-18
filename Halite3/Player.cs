@@ -1,12 +1,10 @@
 ﻿namespace Halite3
 {
-    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
-    using System.Text;
 
-    public class Player
+    public abstract class Player
     {
         public Logger Logger { get; set; }
 
@@ -14,7 +12,7 @@
         public Position ShipyardPosition { get; protected set; }
         public int Halite { get; protected set; }
 
-        public int TotalReturnedHalite { get; private set; }
+        public int TotalReturnedHalite { get; protected set; }
         public int InitialHalite { get; private set; }
 
         /// <summary>
@@ -86,18 +84,7 @@
             }
         }
 
-        protected virtual void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
-        {
-            foreach (var message in playerMessage.Dropoffs)
-            {
-                if (!DropoffPositions.Contains(message.Position))
-                {
-                    TotalReturnedHalite += GameConstants.DropoffCost;
-                    DropoffPositions.Add(message.Position);
-                    UpdateDropoffDistances();
-                }
-            }
-        }
+        protected abstract void HandleDropoffMessages(PlayerUpdateMessage playerMessage);
 
         protected virtual void HandleShipMessages(PlayerUpdateMessage playerMessage)
         {
@@ -122,11 +109,6 @@
                 }
 
                 HandleAliveShip(ship, shipMessage);
-
-                // TODO: This will not work for MyShips.
-                ship.PreviousPosition = ship.Position;
-                ship.Position = shipMessage.Position;
-                ship.Halite = shipMessage.Halite;
             }
 
             // New ships.
@@ -138,22 +120,16 @@
                 ship.Id = shipMessage.ShipId;
                 ship.Position = shipMessage.Position;
                 Ships.Add(ship);
+                Debug.Assert(ShipMap[shipMessage.Position] == null);
                 ShipMap[shipMessage.Position] = ship;
             }
         }
 
-        protected virtual void HandleSunkShip(Ship ship)
-        {
-        }
+        protected abstract void HandleSunkShip(Ship ship);
 
-        protected virtual void HandleAliveShip(Ship ship, ShipMessage shipMessage)
-        {
-        }
+        protected abstract void HandleAliveShip(Ship ship, ShipMessage shipMessage);
 
-        protected virtual Ship HandleNewShip(ShipMessage shipMessage)
-        {
-            return new Ship(this);
-        }
+        protected abstract Ship HandleNewShip(ShipMessage shipMessage);
 
         public override string ToString()
         {
