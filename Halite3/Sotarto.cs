@@ -584,7 +584,7 @@
                 if (isBlocked)
                 {
                     bool hasArrived = false;
-                    double originAdjustedHalite = originAdjustedHaliteMap.Values[ship.OriginPosition];
+                    double originAdjustedHalite = originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition];
                     if (neighbourhoodInfo.OriginValue != 0)
                     {
                         double originHaliteToPathValueRatio = originAdjustedHalite / neighbourhoodInfo.OriginValue;
@@ -598,7 +598,7 @@
                     }
                 }
 
-                logger.LogDebug("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", halite = " + originAdjustedHaliteMap.Values[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
+                logger.LogDebug("Outbound ship " + ship.Id + " at " + ship.OriginPosition + " starts harvesting (path value = " + neighbourhoodInfo.OriginValue + ", halite = " + originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition] + ", isBlocked = " + isBlocked + ").");
                 SetShipRole(ship, ShipRole.Harvester);
                 return;
             }
@@ -1028,7 +1028,7 @@
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
             PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
-            PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
+            PaintMap(originAdjustedHaliteMap.ValuesMinusReturnCost, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
             PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
             PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 1000);
             PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");

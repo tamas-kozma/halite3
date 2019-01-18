@@ -1,6 +1,7 @@
 ﻿namespace Halite3
 {
     using System;
+    using System.Diagnostics;
 
     public sealed class OutboundMap
     {
@@ -34,9 +35,13 @@
             outboundPaths.Fill(double.MaxValue);
             var forbiddenCellsMap = ForbiddenCellsMap;
 
+            double outboundDistanceOnOneTank = GameConstants.ExtractRatio / GameConstants.MoveCostRatio;
+            double outboundPathFuelPenaltyMultiplier = (1d + outboundDistanceOnOneTank) / outboundDistanceOnOneTank;
+            double baseOutboundStepTime = outboundPathFuelPenaltyMultiplier;
+
             var harvestTimeMap = HarvestTimeMap;
             int estimatedMaxQueueSize = (int)(harvestTimeMap.CellCount * Math.Log(harvestTimeMap.CellCount));
-            var queue = new DoublePriorityQueue<Position>(estimatedMaxQueueSize);
+            var queue = new DoublePriorityQueue<PositionWithStepTime>(estimatedMaxQueueSize);
             var returnDistanceMap = ReturnMap.CellData;
             foreach (var position in harvestTimeMap.AllPositions)
             {
@@ -45,9 +50,20 @@
                     continue;
                 }
 
-                double harvestTime = harvestTimeMap[position];
-                double returnTime = returnDistanceMap[position].Distance;
-                queue.Enqueue(harvestTime + returnTime, position);
+                var returnMapCellInfo = returnDistanceMap[position];
+                double haliteLostOnReturn = GameConstants.MoveCostRatio * returnMapCellInfo.SumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
+                double returnedHalite = GameConstants.ShipCapacity - haliteLostOnReturn;
+                if (returnedHalite <= 0)
+                {
+                    continue;
+                }
+
+                double lostHaliteMultiplier = GameConstants.ShipCapacity / returnedHalite;
+                Debug.Assert(lostHaliteMultiplier >= 1d);
+                double harvestTime = harvestTimeMap[position] * lostHaliteMultiplier;
+                double returnTime = returnMapCellInfo.Distance * lostHaliteMultiplier;
+                double outboundStepTime = baseOutboundStepTime * lostHaliteMultiplier;
+                queue.Enqueue(harvestTime + returnTime, new PositionWithStepTime(position, outboundStepTime));
             }
 
             var mapBooster = MapBooster;
@@ -60,13 +76,11 @@
 
             // Plus one because I check it only on the source cell.
             int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius + 1;
-            double outboundDistanceOnOneTank = GameConstants.ExtractRatio / GameConstants.MoveCostRatio;
-            double outboundPathFuelPenaltyMultiplier = (1d + outboundDistanceOnOneTank) / outboundDistanceOnOneTank;
-            double outboundStepTime = outboundPathFuelPenaltyMultiplier;
             while (queue.Count > 0)
             {
                 double newTime = queue.PeekPriority();
-                var position = queue.Dequeue();
+                var positionWithStepTime = queue.Dequeue();
+                var position = positionWithStepTime.Position;
                 double oldTime = outboundPaths[position];
                 if (newTime >= oldTime)
                 {
@@ -86,7 +100,7 @@
                     //break;
                 }
 
-                double nextTime = newTime + outboundStepTime;
+                double nextTime = newTime + positionWithStepTime.OutboundStepTime;
                 var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbourArray)
                 {
@@ -105,7 +119,7 @@
                         }
                     }
 
-                    queue.Enqueue(nextTime, neighbour);
+                    queue.Enqueue(nextTime, new PositionWithStepTime(neighbour, positionWithStepTime.OutboundStepTime));
                 }
             }
 
@@ -178,6 +192,18 @@
                 double haliteGatheredFromOneCellMinusMoveCost = haliteGatheredFromOneCell - (haliteLeftAtCell * GameConstants.MoveCostRatio);
                 double harvestTime = (GameConstants.ShipCapacity / haliteGatheredFromOneCellMinusMoveCost) * (turnsHarvestingAtOneCell + 1d);
                 EstimatedHarvestTimes[halite] = harvestTime;
+            }
+        }
+
+        private struct PositionWithStepTime
+        {
+            public readonly Position Position;
+            public readonly double OutboundStepTime;
+
+            public PositionWithStepTime(Position position, double outboundStepTime)
+            {
+                Position = position;
+                OutboundStepTime = outboundStepTime;
             }
         }
     }

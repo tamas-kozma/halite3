@@ -17,7 +17,8 @@
         public BitMapLayer ForbiddenCellsMap { get; set; }
         public OpponentHarvestAreaMap OpponentHarvestAreaMap { get; set; }
 
-        public DataMapLayer<double> Values { get; private set; }
+        public DataMapLayer<double> ValuesMinusReturnCost { get; private set; }
+        public DataMapLayer<double> Values;
 
         public void Calculate()
         {
@@ -26,15 +27,18 @@
 
         private void CalculateAdjustedHaliteMap()
         {
-            var values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
-            Values = values;
+            int mapWidth = BaseHaliteMap.Width;
+            int mapHeight = BaseHaliteMap.Height;
+            var valuesMinusReturnCost = new DataMapLayer<double>(mapWidth, mapHeight);
+            ValuesMinusReturnCost = valuesMinusReturnCost;
+            Values = new DataMapLayer<double>(mapWidth, mapHeight);
             double maxHalite = TuningSettings.AdjustedHaliteMapMaxHalite;
             var opponentHarvestAreaBonusMultiplierMap = OpponentHarvestAreaMap.HaliteMultiplierMap;
             foreach (var position in BaseHaliteMap.AllPositions)
             {
                 if (ForbiddenCellsMap[position])
                 {
-                    values[position] = 0;
+                    valuesMinusReturnCost[position] = 0;
                     continue;
                 }
 
@@ -46,11 +50,13 @@
                     adjustedHalite *= opponentHarvestAreaBonusMultiplier;
                 }
 
+                Values[position] = Math.Min(maxHalite, adjustedHalite);
+
                 int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
                 double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
                 adjustedHalite = Math.Max(adjustedHalite - lostHalite, 0);
                 adjustedHalite = Math.Min(maxHalite, adjustedHalite);
-                values[position] = adjustedHalite;
+                valuesMinusReturnCost[position] = adjustedHalite;
             }
         }
     }
