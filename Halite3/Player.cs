@@ -50,7 +50,7 @@
             ShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
 
             DistanceFromDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            UpdateDropoffDistances();
+            UpdateDropoffDistances(DistanceFromDropoffMap);
         }
 
         public void Update(TurnMessage turnMessage)
@@ -74,14 +74,18 @@
             }
         }
 
-        protected void UpdateDropoffDistances()
+        public void UpdateDropoffDistances(DataMapLayer<int> map, int minAge = 0)
         {
-            foreach (var position in DistanceFromDropoffMap.AllPositions)
+            var eligibleDropoffPositions = Dropoffs
+                .Where(dropoff => dropoff.Age >= minAge)
+                .Select(dropoff => dropoff.Position)
+                .ToArray();
+
+            foreach (var position in map.AllPositions)
             {
                 int minDistance = int.MaxValue;
-                foreach (var dropoff in Dropoffs)
+                foreach (var dropoffPosition in eligibleDropoffPositions)
                 {
-                    var dropoffPosition = dropoff.Position;
                     int distance = DistanceFromDropoffMap.WraparoundDistance(position, dropoffPosition);
                     if (distance < minDistance)
                     {
@@ -89,7 +93,7 @@
                     }
                 }
 
-                DistanceFromDropoffMap[position] = minDistance;
+                map[position] = minDistance;
             }
         }
 
@@ -136,7 +140,7 @@
                     dropoff.Age = 1;
                 }
 
-                UpdateDropoffDistances();
+                UpdateDropoffDistances(DistanceFromDropoffMap);
             }
         }
 

@@ -283,7 +283,7 @@
                     }
 
                     ship.Map = outboundMap.OutboundPaths;
-                    ship.MapDirection = 1;
+                    ship.MapDirection = -1;
                     break;
 
                 case ShipRole.Harvester:
@@ -1027,6 +1027,12 @@
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
+            PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
+            PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
+            PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
+            PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 1000);
+            PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");
+
             logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
 
             return true;
@@ -1361,17 +1367,17 @@
             switch (kind)
             {
                 case MapSetKind.Default:
-                    return GetOutboundMap(ref dangerousOutboundMap, false, GetAdjustedHaliteMap(kind), permanentForbiddenCellsMap);
+                    return GetOutboundMap(ref dangerousOutboundMap, false, GetAdjustedHaliteMap(kind), permanentForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
                 case MapSetKind.Detour:
-                    return GetOutboundMap(ref dangerousDetourOutboundMap, false, GetAdjustedHaliteMap(kind), originForbiddenCellsMap);
+                    return GetOutboundMap(ref dangerousDetourOutboundMap, false, GetAdjustedHaliteMap(kind), originForbiddenCellsMap, GetReturnMap(MapSetKind.Detour));
                 case MapSetKind.EarlyGame:
-                    return GetOutboundMap(ref dangerousEarlyGameOutboundMap, true, GetAdjustedHaliteMap(MapSetKind.Default), permanentForbiddenCellsMap);
+                    return GetOutboundMap(ref dangerousEarlyGameOutboundMap, true, GetAdjustedHaliteMap(MapSetKind.Default), permanentForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
                 default:
                     throw new ArgumentException();
             }
         }
 
-        private OutboundMap GetOutboundMap(ref OutboundMap mapStorage, bool isEarlyGameMap, AdjustedHaliteMap adjustedHaliteMapToUse, BitMapLayer forbiddenCellsMapToUse)
+        private OutboundMap GetOutboundMap(ref OutboundMap mapStorage, bool isEarlyGameMap, AdjustedHaliteMap adjustedHaliteMapToUse, BitMapLayer forbiddenCellsMapToUse, ReturnMap returnMapToUse)
         {
             if (mapStorage == null)
             {
@@ -1383,7 +1389,8 @@
                     Logger = logger,
                     MapBooster = mapBooster,
                     ForbiddenCellsMap = forbiddenCellsMapToUse,
-                    IsEarlyGameMap = isEarlyGameMap
+                    IsEarlyGameMap = isEarlyGameMap,
+                    ReturnMap = returnMapToUse
                 };
 
                 mapStorage.Calculate();
@@ -1423,6 +1430,8 @@
             forbiddenCellsMap.Clear();
 
             var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
+            var myDistanceFromEstablishedDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
+            myPlayer.UpdateDropoffDistances(myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
             foreach (var player in opponentPlayers)
             {
                 foreach (var dropoff in player.Dropoffs)
@@ -1439,18 +1448,18 @@
                 {
                     var shipPosition = ship.Position;
                     var shipOwner = ship.Owner;
-                    int shipMyDropoffdistance = myPlayer.DistanceFromDropoffMap[ship.Position];
-                    if (myPlayer.DistanceFromDropoffMap[shipPosition] <= tuningSettings.MapOpponentShipInvisibilityRadius)
+                    int shipMyDropoffdistance = myDistanceFromEstablishedDropoffMap[shipPosition];
+                    if (shipMyDropoffdistance <= tuningSettings.MapOpponentShipInvisibilityRadius)
                     {
                         logger.LogDebug(ship + " belonging to " + shipOwner + " came too close (" + shipMyDropoffdistance + ") and thus became invisible.");
                         continue;
                     }
 
-                    forbiddenCellsMap[ship.Position] = true;
+                    forbiddenCellsMap[shipPosition] = true;
 
                     var shipNeighbourArray = mapBooster.GetNeighbours(shipPosition);
                     int haliteAtShipCell = originHaliteMap[shipPosition];
-                    int shipOwnerDropoffdistance = shipOwner.DistanceFromDropoffMap[ship.Position];
+                    int shipOwnerDropoffdistance = shipOwner.DistanceFromDropoffMap[shipPosition];
                     bool isHarvester = (ship.Halite >= tuningSettings.OpponentShipLikelyHarvesterMinHalite
                         && ship.Halite <= tuningSettings.OpponentShipLikelyHarvesterMaxHalite);
 
@@ -1508,6 +1517,17 @@
             }
 
             string svg = painter.MapLayerToSvg(map);
+            PrintSvg(svg, name);
+        }
+
+        private void PaintMap(MapLayer<double> map, string name, double maxValue)
+        {
+            if (IsMuted)
+            {
+                return;
+            }
+
+            string svg = painter.MapLayerToSvg(map, maxValue);
             PrintSvg(svg, name);
         }
 

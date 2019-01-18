@@ -2,8 +2,9 @@
 {
     public sealed class TuningSettings
     {
-        public int MapOpponentShipInvisibilityRadius { get; set; } = 5;
+        public int MapOpponentShipInvisibilityRadius { get; set; } = 3;
         public int MapOpponentDropoffNoGoZoneRadius { get; set; } = 3;
+        public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 40;
 
         public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 150;
         public int OpponentShipLikelyHarvesterMaxHalite { get; set; } = 750;
@@ -27,7 +28,7 @@
         public int OutboundShipSwitchToOriginMapDistance { get; set; } = 2;
         public int OutboundShipAntiSquarePathMinDifference { get; set; } = 3;
 
-        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.4d;
+        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.42d;
         public double HarvesterBlockedMoveThresholdHaliteRatio { get; set; } = 0.3d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
@@ -46,8 +47,6 @@
         public int DetourTurnCount { get; set; } = 5;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
-        public double OpponentHarvestAreaMapHaliteBonusMultiplier { get; set; } = 1.5d;
-        public double OpponentHarvestAreaMapHaliteBonusMultiplierCap { get; set; } = 3d;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
     }
 }

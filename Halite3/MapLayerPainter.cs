@@ -40,7 +40,8 @@
             var intMap = new DataMapLayer<int>(map.Width, map.Height);
             foreach (var position in intMap.AllPositions)
             {
-                intMap[position] = (int)Math.Round(map.GetAt(position));
+                double cappedValue = Math.Min(Math.Round(map.GetAt(position)), maxValue);
+                intMap[position] = (int)cappedValue;
             }
 
             int intMaxValue = (int)Math.Round(maxValue);
@@ -61,7 +62,8 @@
             builder.AppendLine("<svg width=\"" + imageWidth + "\" height=\"" + imageHeight + "\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\">");
             foreach (var position in map.AllPositions)
             {
-                int normalizedValue = Math.Min((int)(((map.GetAt(position) * 255d) / maxValue)), 255);
+                int cappedValue = Math.Min(map.GetAt(position), maxValue);
+                int normalizedValue = Math.Min((int)(((cappedValue * 255d) / maxValue)), 255);
                 int red = normalizedValue;
                 int blue = 255 - normalizedValue;
                 int green = normalizedValue;

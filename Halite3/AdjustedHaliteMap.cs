@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
 
     public sealed class AdjustedHaliteMap
@@ -25,44 +26,31 @@
 
         private void CalculateAdjustedHaliteMap()
         {
-            Values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
+            var values = new DataMapLayer<double>(BaseHaliteMap.Width, BaseHaliteMap.Height);
+            Values = values;
             double maxHalite = TuningSettings.AdjustedHaliteMapMaxHalite;
             var opponentHarvestAreaBonusMultiplierMap = OpponentHarvestAreaMap.HaliteMultiplierMap;
             foreach (var position in BaseHaliteMap.AllPositions)
             {
                 if (ForbiddenCellsMap[position])
                 {
-                    Values[position] = 0;
+                    values[position] = 0;
                     continue;
                 }
 
-                int halite = BaseHaliteMap[position];
-                int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
-                double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
-                double adjustedHalite = Math.Max(halite - lostHalite, 0);
+                double adjustedHalite = BaseHaliteMap[position];
                 double opponentHarvestAreaBonusMultiplier = opponentHarvestAreaBonusMultiplierMap[position];
-                if (opponentHarvestAreaBonusMultiplier > 0)
+                Debug.Assert(opponentHarvestAreaBonusMultiplier == 0 || (opponentHarvestAreaBonusMultiplier >= 1d && opponentHarvestAreaBonusMultiplier <= GameConstants.InspiredBonusMultiplier));
+                if (opponentHarvestAreaBonusMultiplier != 0)
                 {
                     adjustedHalite *= opponentHarvestAreaBonusMultiplier;
                 }
 
-                Values[position] = Math.Min(maxHalite, adjustedHalite);
-            }
-        }
-
-        private void AdjustHaliteInMultipleDiscs(IEnumerable<Position> positions, int radius, double multiplier)
-        {
-            int discArea = BaseHaliteMap.GetDiscArea(radius);
-            var discArray = new Position[discArea];
-            foreach (var position in positions)
-            {
-                Values.GetDiscCells(position, radius, discArray);
-                foreach (var discPosition in discArray)
-                {
-                    double adjustedHalite = Values[discPosition];
-                    adjustedHalite *= multiplier;
-                    Values[discPosition] = adjustedHalite;
-                }
+                int returnPathSumHalite = ReturnMap.CellData[position].SumHalite;
+                double lostHalite = GameConstants.MoveCostRatio * returnPathSumHalite * TuningSettings.AdjustedHaliteMapLostHaliteMultiplier;
+                adjustedHalite = Math.Max(adjustedHalite - lostHalite, 0);
+                adjustedHalite = Math.Min(maxHalite, adjustedHalite);
+                values[position] = adjustedHalite;
             }
         }
     }

@@ -52,7 +52,7 @@
             Dropoffs.Add(dropoff);
             NewDropoffs.Add(dropoff);
 
-            UpdateDropoffDistances();
+            UpdateDropoffDistances(DistanceFromDropoffMap);
         }
 
         public MyShip GetFromMyShipMap(Position position)

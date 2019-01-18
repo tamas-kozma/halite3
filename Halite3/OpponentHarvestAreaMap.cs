@@ -72,32 +72,32 @@
             }
 
             HaliteMultiplierMap.Clear();
-            if (GameConstants.InspirationRadius <= 2 || GameConstants.InspirationRadius > MapBooster.MapWidth / 2)
+            if (GameConstants.InspirationRadius <= 2 || GameConstants.InspirationRadius > MapBooster.MapWidth / 2
+                || GameConstants.InspiredBonusMultiplier <= 1d)
             {
                 return;
             }
 
-            Debug.Assert(TuningSettings.OpponentHarvestAreaMapHaliteBonusMultiplier >= 1);
-            double baseBonusMultiplierMinusOne = TuningSettings.OpponentHarvestAreaMapHaliteBonusMultiplier - 1;
+            double baseBonusMultiplier = (GameConstants.InspiredBonusMultiplier - 1d) / 2d;
             int bonusRadius = GameConstants.InspirationRadius + TuningSettings.OpponentHarvestAreaMapHaliteBonusExtraRadius;
             var bonusDisc = new Position[mapCalculator.GetDiscArea(bonusRadius)];
-            double bonusMultiplierCap = TuningSettings.OpponentHarvestAreaMapHaliteBonusMultiplierCap;
+            double bonusMultiplierCap = GameConstants.InspiredBonusMultiplier;
             foreach (var pair in HarvestAreaCenters)
             {
                 var scent = pair.Value;
                 Debug.Assert(scent.Strength > 0 && scent.Strength <= maxScentStrength);
                 double strengthRatio = scent.Strength / (double)maxScentStrength;
-                double singleBonusMultiplier = (baseBonusMultiplierMinusOne * strengthRatio) + 1;
-                double bonusMultiplier = Math.Pow(singleBonusMultiplier, scent.Multiplier);
-                Debug.Assert(bonusMultiplier >= 1d);
+                double singleBonusMultiplier = (baseBonusMultiplier * strengthRatio);
+                double bonusMultiplier = singleBonusMultiplier * scent.Multiplier;
+                Debug.Assert(bonusMultiplier > 0);
 
                 var center = pair.Key;
                 mapCalculator.GetDiscCells(center, bonusRadius, bonusDisc);
                 foreach (var position in bonusDisc)
                 {
                     double existingBonusMultiplier = HaliteMultiplierMap[position];
-                    Debug.Assert(existingBonusMultiplier == 0 || existingBonusMultiplier >= 1d);
-                    double newBonusMultiplier = (existingBonusMultiplier == 0) ? bonusMultiplier : existingBonusMultiplier * bonusMultiplier;
+                    Debug.Assert(existingBonusMultiplier == 0 || (existingBonusMultiplier >= 1d && existingBonusMultiplier <= bonusMultiplierCap));
+                    double newBonusMultiplier = (existingBonusMultiplier == 0) ? bonusMultiplier + 1 : existingBonusMultiplier + bonusMultiplier;
                     newBonusMultiplier = Math.Min(newBonusMultiplier, bonusMultiplierCap);
                     HaliteMultiplierMap[position] = newBonusMultiplier;
                 }
