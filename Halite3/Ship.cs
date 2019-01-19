@@ -12,6 +12,7 @@
         public Position Position { get; set; }
         public int Halite { get; set; }
         public Position PreviousPosition { get; set; }
+        public int DistanceFromDropoff { get; set; }
 
         protected virtual string ToStringCore()
         {

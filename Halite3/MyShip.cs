@@ -33,6 +33,7 @@
             Debug.Assert(Position == OriginPosition);
             PreviousPosition = Position;
             Position = newPosition;
+            DistanceFromDropoff = Owner.DistanceFromDropoffMap[newPosition];
         }
 
         protected override string ToStringCore()

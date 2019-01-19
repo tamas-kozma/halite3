@@ -50,7 +50,7 @@
             ShipMap = new DataMapLayer<Ship>(mapWidth, mapHeight);
 
             DistanceFromDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            UpdateDropoffDistances(DistanceFromDropoffMap);
+            UpdateDropoffDistances();
         }
 
         public void Update(TurnMessage turnMessage)
@@ -97,6 +97,15 @@
             }
         }
 
+        protected void UpdateDropoffDistances()
+        {
+            UpdateDropoffDistances(DistanceFromDropoffMap);
+            foreach (var ship in Ships)
+            {
+                ship.DistanceFromDropoff = DistanceFromDropoffMap[ship.Position];
+            }
+        }
+
         protected virtual void HandleDropoffMessages(PlayerUpdateMessage playerMessage)
         {
             var messagesById = playerMessage.Dropoffs.ToDictionary(message => message.DropoffId);
@@ -140,7 +149,7 @@
                     dropoff.Age = 1;
                 }
 
-                UpdateDropoffDistances(DistanceFromDropoffMap);
+                UpdateDropoffDistances();
             }
         }
 
@@ -177,6 +186,7 @@
                 var ship = HandleNewShip(shipMessage);
                 ship.Id = shipMessage.ShipId;
                 ship.Position = shipMessage.Position;
+                ship.DistanceFromDropoff = 0;
                 Ships.Add(ship);
                 Debug.Assert(ShipMap[shipMessage.Position] == null);
                 ShipMap[shipMessage.Position] = ship;

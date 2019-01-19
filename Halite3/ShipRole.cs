@@ -4,10 +4,11 @@
     {
         Dropoff = 0, // Used only when predicting the role of a builder at its destination.
         SpecialAgent = 1,
-        Builder = 2,
-        Inbound = 3,
-        Harvester = 4,
-        Outbound = 5,
-        LowestPriority = 5
+        Lemming = 2,
+        Builder = 3,
+        Inbound = 4,
+        Harvester = 5,
+        Outbound = 6,
+        LowestPriority = 6
     }
 }

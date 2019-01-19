@@ -115,6 +115,8 @@
 
         private void AssignOrdersToAllShips()
         {
+            TurnShipsIntoLemmings();
+
             shipQueue.Clear();
             foreach (var ship in myPlayer.MyShips)
             {
@@ -251,6 +253,11 @@
 
                 shipQueue.RemoveAt(shipQueue.Count - 1);
             }
+        }
+
+        private void TurnShipsIntoLemmings()
+        {
+
         }
 
         private void SetShipMap(MyShip ship)

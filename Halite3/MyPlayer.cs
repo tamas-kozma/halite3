@@ -32,7 +32,8 @@
                 Id = null,
                 Position = ShipyardPosition,
                 Role = ShipRole.Outbound,
-                PreviousPosition = ShipyardPosition
+                PreviousPosition = ShipyardPosition,
+                DistanceFromDropoff = 0
             };
         }
 
@@ -52,7 +53,7 @@
             Dropoffs.Add(dropoff);
             NewDropoffs.Add(dropoff);
 
-            UpdateDropoffDistances(DistanceFromDropoffMap);
+            UpdateDropoffDistances();
         }
 
         public MyShip GetFromMyShipMap(Position position)

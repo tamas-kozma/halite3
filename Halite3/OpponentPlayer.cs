@@ -37,6 +37,7 @@
         {
             ship.PreviousPosition = ship.Position;
             ship.Position = shipMessage.Position;
+            ship.DistanceFromDropoff = DistanceFromDropoffMap[ship.Position];
             if (ship.PreviousPosition != ship.Position)
             {
                 var shipAtOldPosition = OpponentShipMap[ship.PreviousPosition];
