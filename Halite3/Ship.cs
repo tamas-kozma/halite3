@@ -13,9 +13,14 @@
         public int Halite { get; set; }
         public Position PreviousPosition { get; set; }
 
-        public override string ToString()
+        protected virtual string ToStringCore()
         {
-            return "ship-" + Id + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + "]";
+            return "ship-" + Id + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite;
+        }
+
+        public sealed override string ToString()
+        {
+            return "[" + ToStringCore() + "]";
         }
     }
 }

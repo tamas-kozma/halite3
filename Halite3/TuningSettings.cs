@@ -9,8 +9,9 @@ namespace Halite3
         public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 40;
 
         public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 150;
-        public int OpponentShipLikelyHarvesterMaxHalite { get; set; } = 750;
-        public double OpponentShipLikelyHarvesterMoveMaxHaliteRatio { get; set; } = 1.25d;
+        public int OpponentShipCertainlyInboundMinHalite { get; set; } = 990;
+        public int OpponentShipLikelyInboundMinHalite { get; set; } = 900;
+        public double OpponentHarvesterMoveThresholdHaliteRatio { get; set; } = 0.5d;
 
         public double ReturnPathDistancePenaltyMultiplier { get; set; } = 0.5d;
 

@@ -35,9 +35,9 @@
             Position = newPosition;
         }
 
-        public override string ToString()
+        protected override string ToStringCore()
         {
-            return "ship-" + Id + "-[OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + "]";
+            return "OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + ", DTC=" + DetourTurnCount;
         }
     }
 }

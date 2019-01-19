@@ -58,11 +58,13 @@
             ship.Halite = shipMessage.Halite;
 
             var opponentShip = ship as OpponentShip;
+            opponentShip.ResetIntel();
         }
 
         protected override Ship HandleNewShip(ShipMessage shipMessage)
         {
             var ship = new OpponentShip(this);
+            ship.PreviousPosition = shipMessage.Position;
             OpponentShips.Add(ship);
             Debug.Assert(OpponentShipMap[shipMessage.Position] == null);
             OpponentShipMap[shipMessage.Position] = ship;
