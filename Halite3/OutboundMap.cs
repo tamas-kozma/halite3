@@ -157,6 +157,7 @@
                 }
 
                 double nextTime = newTime + positionWithStepTime.OutboundStepTime;
+                Debug.Assert(nextTime > 0 && positionWithStepTime.OutboundStepTime > 0, "nextTime=" + nextTime + ", positionWithStepTime.OutboundStepTime=" + positionWithStepTime.OutboundStepTime);
                 var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbourArray)
                 {
@@ -177,6 +178,11 @@
 
                     queue.Enqueue(nextTime, new PositionWithStepTime(neighbour, positionWithStepTime.OutboundStepTime));
                 }
+            }
+
+            foreach (var dropoff in MyPlayer.Dropoffs)
+            {
+                outboundPaths[dropoff.Position] = double.MaxValue;
             }
         }
 

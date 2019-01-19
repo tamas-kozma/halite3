@@ -161,12 +161,14 @@
             }
 
             Debug.Assert(!areHaliteBasedMapsDirty);
+            var currentOutboundMap = GetOutboundMap(MapSetKind.Default);
             while (shipQueue.Count != 0)
             {
-                var currentOutboundMap = GetOutboundMap(MapSetKind.Default);
+                var newOutboundMap = GetOutboundMap(MapSetKind.Default);
+                bool haliteChanged = (newOutboundMap != currentOutboundMap);
+                currentOutboundMap = newOutboundMap;
                 shipTurnOrderComparer.OutboundMap = currentOutboundMap;
 
-                bool haliteChanged = areHaliteBasedMapsDirty;
                 var bestShip = shipQueue[0];
                 int bestIndex = 0;
                 for (int i = 1; i < shipQueue.Count; i++)
@@ -212,6 +214,7 @@
                         // Doing this early so that someone starting to harvest nearby doesn't prompt this ship to keep going unnecessarily.
                         // No similar problem with harvesters, as those are not affected by simulated halite changes very much.
                         SetShipRole(bestShip, ShipRole.Harvester);
+                        UpdateShipDestination(bestShip);
                     }
 
                     if (bestShip.Role == ShipRole.Inbound)
@@ -595,22 +598,31 @@
                     return (originHaliteMap[candidate] < originHaliteMap[bestSoFar]);
                 });
 
+            Debug.Assert(neighbourhoodInfo.OriginValue < 0, "Negative job time (" + -1 * neighbourhoodInfo.OriginValue + ") found for " + ship + ".");
+
             if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
             {
                 bool isBlocked = neighbourhoodInfo.BestValue > neighbourhoodInfo.BestAllowedValue;
                 if (isBlocked)
                 {
                     bool hasArrived = false;
-                    double originAdjustedHalite = originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition];
-                    double destinationAdjustedHalite = originAdjustedHaliteMap.ValuesMinusReturnCost[ship.OriginPosition];
-                    if (destinationAdjustedHalite != 0)
+                    double originAdjustedHalite = originAdjustedHaliteMap.Values[ship.OriginPosition];
+                    if (ship.Destination.HasValue)
                     {
-                        double haliteRatio = originAdjustedHalite / destinationAdjustedHalite;
-                        hasArrived = (haliteRatio >= tuningSettings.OutboundShipToHarvesterConversionMinimumHaliteRatio);
-                    }
-                    else
-                    {
-                        hasArrived = true;
+                        double destinationAdjustedHalite = originAdjustedHaliteMap.Values[ship.Destination.Value];
+                        if (destinationAdjustedHalite != 0)
+                        {
+                            double haliteRatio = originAdjustedHalite / destinationAdjustedHalite;
+                            hasArrived = (haliteRatio >= tuningSettings.OutboundShipToHarvesterConversionMinimumHaliteRatio);
+                            if (hasArrived)
+                            {
+                                logger.LogDebug("Outbound " + ship + " is blocked, but finds this place good enough (OAH=" + originAdjustedHalite + ", DAH=" + destinationAdjustedHalite + ", ratio=" + haliteRatio + ") and starts harvesting.");
+                            }
+                        }
+                        else
+                        {
+                            hasArrived = true;
+                        }
                     }
 
                     if (!hasArrived)
@@ -868,7 +880,7 @@
         {
             Debug.Assert(!ship.HasActionAssigned);
 
-            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", got ordered to " + position + " (isBlocked = " + isBlocked + ").");
+            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", got ordered to " + position + " (isBlocked = " + isBlocked + ", destination = " + ship.Destination + ").");
 
             if (position != ship.OriginPosition)
             {
@@ -1047,11 +1059,11 @@
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
-            PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
+            /*PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
             PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
             PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
             PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 250);
-            PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");
+            PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");*/
 
             logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
 
@@ -1153,6 +1165,7 @@
             if (extracted != 0)
             {
                 halite -= extracted;
+                //logger.LogDebug("AdjustHaliteForExtraction: p=" + ship.Position + ", extracted=" + extracted + ", before=" + haliteMap[ship.Position] + ", after=" + halite);
                 haliteMap[ship.Position] = halite;
                 ship.Halite += extracted;
                 areHaliteBasedMapsDirty = true;
@@ -1172,14 +1185,23 @@
 
         private void AdjustHaliteForSimulatedHarvest(MyShip ship)
         {
-            if (!ship.Destination.HasValue)
+            Position position;
+            if (ship.Role == ShipRole.Harvester)
             {
-                return;
+                position = ship.Destination ?? ship.OriginPosition;
+            }
+            else
+            {
+                if (!ship.Destination.HasValue)
+                {
+                    return;
+                }
+
+                position = ship.Destination.Value;
             }
 
-            logger.LogDebug("Simulating harvest for " + ship + ".");
+            logger.LogDebug("Simulating harvest for " + ship + " at " + position + ".");
             //logger.LogDebug("Halite before at " + ship.Destination.Value + " is " + haliteMap[ship.Destination.Value] + " (original was " + originHaliteMap[ship.Destination.Value] + ")");
-            var position = ship.Destination.Value;
             int localHalite = haliteMap[position];
             int haliteInShip = ship.Halite;
             while (true)
@@ -1220,9 +1242,9 @@
                     break;
                 }
 
-                //logger.WriteMessage("Simulated harvest at " + position + " from " + haliteMap[position] + " to " + (localHalite - extractableAmount) + ".");
                 int extractedAmount = Math.Min(extractableAmount, availableCapacity);
                 localHalite -= extractedAmount;
+                //logger.LogDebug("Simulated harvest at " + position + " from " + haliteMap[position] + " to " + (localHalite) + ".");
                 haliteMap[position] = localHalite;
                 haliteInShip += extractedAmount;
             }
@@ -1296,6 +1318,15 @@
             dangerousDetourAdjustedHaliteMap = null;
             dangerousDetourOutboundMap = null;
             areHaliteBasedMapsDirty = false;
+
+            /*if (TurnNumber >= 143 && TurnNumber < 150)
+            {
+                string prefix = "_" + TurnNumber + "_" + (myPlayer.Ships.Count - shipQueue.Count).ToString().PadLeft(3, '0');
+                logger.LogDebug("-- Painting map series " + prefix);
+                PaintMap(GetAdjustedHaliteMap(MapSetKind.Default).Values, prefix + "AHM");
+                PaintMap(GetOutboundMap(MapSetKind.Default).HarvestTimeMap, prefix + "HTM");
+                PaintMap(GetOutboundMap(MapSetKind.Default).OutboundPaths, prefix + "OP");
+            }*/
         }
 
         private ReturnMap GetReturnMap(MapSetKind kind)
@@ -1437,10 +1468,10 @@
                 }
             }
 
+            opponentHarvestAreaMap.Update(opponentHarvestPositionList);
+
             haliteMap = new DataMapLayer<int>(originHaliteMap);
             ResetHaliteDependentState();
-
-            opponentHarvestAreaMap.Update(opponentHarvestPositionList);
             //PaintMap(opponentHarvestAreaMap.HaliteMultiplierMap, "HaliteMultiplierMap" + TurnNumber);
         }
 
