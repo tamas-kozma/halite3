@@ -123,6 +123,7 @@
 
                 if (!messagesById.Remove(dropoff.Id, out var message))
                 {
+                    Logger.LogError("Message for " + dropoff + " not found. All remaining messages: " + string.Join(", ", messagesById.Values.Select(dropoffMessage => dropoffMessage.DropoffId + " at " + dropoffMessage.Position)));
                     throw new BotFailedException();
                 }
             }

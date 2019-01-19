@@ -54,6 +54,9 @@
             NewDropoffs.Add(dropoff);
 
             UpdateDropoffDistances();
+
+            builder.IsBuildingDropoff = true;
+            builder.HasActionAssigned = true;
         }
 
         public MyShip GetFromMyShipMap(Position position)
@@ -76,6 +79,7 @@
                 var message = playerMessage.Dropoffs.FirstOrDefault(candidate => candidate.Position == dropoff.Position);
                 if (message == null)
                 {
+                    Logger.LogInfo("MyPlayer: Message for new " + dropoff + " not found, assuming the builder sunk.");
                     // The builder sunk, assuming that money is not lost in this case.
                     Halite += GameConstants.DropoffCost;
                     TotalReturnedHalite -= GameConstants.DropoffCost;
@@ -84,6 +88,7 @@
                 else
                 {
                     dropoff.Id = message.DropoffId;
+                    Logger.LogDebug("MyPlayer: Message for new " + dropoff + " found, setting ID " + message.DropoffId + ".");
                 }
             }
 
@@ -133,6 +138,10 @@
 
             var myShip = ship as MyShip;
             if (ship.Position != shipMessage.Position)
+            {
+                throw new BotFailedException();
+            }
+            if (myShip.IsBuildingDropoff)
             {
                 throw new BotFailedException();
             }

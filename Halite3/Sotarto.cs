@@ -58,6 +58,8 @@
         private int harvesterJobsAssignedCount;
         private double meanHarvesterJobTime;
         private int totalTurnCount;
+        private ExpansionMap expansionMap;
+        private List<MyShip> builderList;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -71,6 +73,7 @@
 
             shipQueue = new List<MyShip>(100);
             shipListBank = new ListBank<MyShip>();
+            builderList = new List<MyShip>();
         }
 
         public int TurnNumber
@@ -94,11 +97,19 @@
                 var turnStartTime = DateTime.Now;
                 logger.LogDebug("------------------- " + turnMessage.TurnNumber + " -------------------");
 
+                if (builderList.Count == 0 && myPlayer.Dropoffs.Count <= (TurnNumber / 100))
+                {
+                    var builderCandidate = FindBestBuilder();
+                    if (builderCandidate != null)
+                    {
+                        SetShipRole(builderCandidate, ShipRole.Builder);
+                    }
+                }
+
                 AssignOrdersToAllShips();
 
-                if (//turnMessage.TurnNumber <= 250 
-                    myPlayer.MyShips.Count <= 60
-                    && myPlayer.Halite >= GameConstants.ShipCost
+                if (myPlayer.MyShips.Count <= 60
+                    && myPlayer.Halite >= GameConstants.ShipCost + (builderList.Count * GameConstants.DropoffCost)
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
                 {
                     myPlayer.BuildShip();
@@ -260,6 +271,33 @@
 
         }
 
+        private MyShip FindBestBuilder(bool considerOnlyNotAlreadyBuilders = false)
+        {
+            if (!expansionMap.SuitableLocationExists)
+            {
+                return null;
+            }
+
+            double bestValue = double.MinValue;
+            MyShip bestShip = null;
+            foreach (var ship in myPlayer.MyShips)
+            {
+                if (considerOnlyNotAlreadyBuilders && ship.Role == ShipRole.Builder)
+                {
+                    continue;
+                }
+
+                double value = expansionMap.Paths[ship.Position];
+                if (value > bestValue)
+                {
+                    bestValue = value;
+                    bestShip = ship;
+                }
+            }
+
+            return bestShip;
+        }
+
         private void SetShipMap(MyShip ship)
         {
             switch (ship.Role)
@@ -324,6 +362,11 @@
                     ship.MapDirection = -1;
                     break;
 
+                case ShipRole.Builder:
+                    ship.Map = expansionMap.Paths;
+                    ship.MapDirection = 1;
+                    break;
+
                 default:
                     ship.Map = null;
                     break;
@@ -358,11 +401,23 @@
 
         private void SetShipRole(MyShip ship, ShipRole role)
         {
+            Debug.Assert(ship.Role != role);
             logger.LogDebug(ship + " changes role to " + role + ".");
             if (ship.IsEarlyGameShip && role == ShipRole.Inbound)
             {
                 ship.IsEarlyGameShip = false;
                 earlyGameShipCount--;
+            }
+
+            if (ship.Role == ShipRole.Builder)
+            {
+                bool removed = builderList.Remove(ship);
+                Debug.Assert(removed);
+            }
+            else if (role == ShipRole.Builder)
+            {
+                Debug.Assert(!builderList.Contains(ship));
+                builderList.Add(ship);
             }
 
             ship.Role = role;
@@ -396,11 +451,67 @@
                     TryAssignOrderToInboundShip(ship);
                     break;
 
+                case ShipRole.Builder:
+                    TryAssignOrderToBuilder(ship);
+                    break;
+
                 default:
                     Debug.Fail("Unexpected ship role.");
                     ProcessShipOrder(ship, ship.OriginPosition);
                     break;
             }
+        }
+
+        private void TryAssignOrderToBuilder(MyShip ship)
+        {
+            if (!expansionMap.SuitableLocationExists)
+            {
+                SetShipRole(ship, ShipRole.Outbound);
+                return;
+            }
+
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
+            if (neighbourhoodInfo.BestValue == 0)
+            {
+                SetShipRole(ship, ShipRole.Outbound);
+                return;
+            }
+
+            var bestBuilder = FindBestBuilder(true);
+            if (bestBuilder != null)
+            {
+                double bestBuilderValue = expansionMap.Paths[bestBuilder.Position];
+                if (bestBuilderValue > neighbourhoodInfo.BestValue)
+                {
+                    SetShipRole(ship, ShipRole.Outbound);
+                    SetShipRole(bestBuilder, ShipRole.Builder);
+                    return;
+                }
+            }
+
+            if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
+            {
+                if (neighbourhoodInfo.BestAllowedPosition == neighbourhoodInfo.BestPosition)
+                {
+                    int haliteAvailableLocally = ship.Halite + originHaliteMap[ship.OriginPosition];
+                    int additionalHaliteNeeded = Math.Max(GameConstants.DropoffCost - haliteAvailableLocally, 0);
+                    if (myPlayer.Halite >= additionalHaliteNeeded)
+                    {
+                        myPlayer.BuildDropoff(ship);
+                    }
+                    else
+                    {
+                        ProcessShipOrder(ship, ship.OriginPosition, false);
+                    }
+
+                    return;
+                }
+
+                AssignOrderToBlockedShip(ship, neighbourhoodInfo);
+                return;
+            }
+
+            ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
         }
 
         private void TryAssignOrderToFugitiveShip(MyShip ship)
@@ -1058,6 +1169,24 @@
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
+            expansionMap = new ExpansionMap()
+            {
+                ForbiddenCellsMap = originForbiddenCellsMap,
+                HaliteMap = originHaliteMap,
+                Logger = logger,
+                MapBooster = mapBooster,
+                MyPlayer = myPlayer,
+                Opponents = opponentPlayers,
+                TuningSettings = tuningSettings
+            };
+
+            expansionMap.Calculate();
+            /*PaintMap(expansionMap.CoarseHaliteMaps[0], "chm1" + TurnNumber.ToString().PadLeft(3, '0'));
+            PaintMap(expansionMap.CoarseHaliteMaps[1], "chm2" + TurnNumber.ToString().PadLeft(3, '0'));
+            PaintMap(expansionMap.CoarseShipCountMaps[0], "csc1" + TurnNumber.ToString().PadLeft(3, '0'));
+            PaintMap(expansionMap.CoarseShipCountMaps[1], "csc2" + TurnNumber.ToString().PadLeft(3, '0'));*/
+            //PaintMap(expansionMap.Paths, "expansionMap" + TurnNumber.ToString().PadLeft(3, '0'));
+
             /*PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
             PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
             PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
@@ -1091,7 +1220,7 @@
                 }
             }
 
-            foreach (var shipwreck in myPlayer.Shipwrecks)
+            foreach (MyShip shipwreck in myPlayer.Shipwrecks)
             {
                 var myShipWreck = shipwreck as MyShip;
                 if (myShipWreck.BlockedTurnCount > 0)
@@ -1104,6 +1233,12 @@
                 if (myShipWreck.IsEarlyGameShip)
                 {
                     earlyGameShipCount--;
+                }
+
+                if (shipwreck.Role == ShipRole.Builder)
+                {
+                    bool removed = builderList.Remove(shipwreck);
+                    Debug.Assert(removed);
                 }
             }
         }

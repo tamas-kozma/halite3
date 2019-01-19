@@ -17,5 +17,10 @@
         {
             get { return Age < 0; }
         }
+
+        public override string ToString()
+        {
+            return "[dropoff-" + Id + ", O=" + Owner + ", P=" + Position + ", A=" + Age + ", IS=" + IsShipyard + "]";
+        }
     }
 }

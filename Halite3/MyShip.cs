@@ -27,6 +27,7 @@
         public bool IsEarlyGameShip { get; set; }
         public bool HasFoundTooLittleHaliteToHarvestThisTurn { get; set; }
         public int DetourTurnCount { get; set; }
+        public bool IsBuildingDropoff { get; set; }
 
         public void SetPosition(Position newPosition)
         {

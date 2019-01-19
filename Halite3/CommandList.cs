@@ -21,7 +21,14 @@
 
             foreach (var ship in player.MyShips)
             {
-                Move(ship.Id, DirectionFromPositions(ship.OriginPosition, ship.Position));
+                if (ship.IsBuildingDropoff)
+                {
+                    BuildDropoff(ship.Id);
+                }
+                else
+                {
+                    Move(ship.Id, DirectionFromPositions(ship.OriginPosition, ship.Position));
+                }
             }
         }
 
