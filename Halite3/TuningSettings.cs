@@ -1,4 +1,6 @@
-﻿namespace Halite3
+﻿using System;
+
+namespace Halite3
 {
     public sealed class TuningSettings
     {
@@ -15,12 +17,7 @@
         public double AdjustedHaliteMapLostHaliteMultiplier { get; set; } = 1d;
         public double AdjustedHaliteMapMaxHalite { get; set; } = 2000;
 
-        // TODO
-        public int OutboundMapMinOpponentHarvesterHalite { get; set; } = 50;
-        public int OutboundMapMaxOpponentHarvesterHalite { get; set; } = 800;
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
-        public double OutboundMapPathStepPenaltyMultiplier { get; set; } = 0.92d; // 0.96
-        public double OutboundMapEarlyGamePathStepPenaltyMultiplier { get; set; } = 0.88d;
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
         public int OutboundMapDropoffAvoidanceRadius { get; set; } = 2;
 
@@ -34,7 +31,7 @@
         public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
         public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 1.5d;
-        public double HarvesterAllowedOverfillRatio { get; set; } = 0.5d;
+        public double HarvesterAllowedOverfillRatio { get; set; } = 0.7d;
 
         public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;
         public double FugitiveShipConversionRatio { get; set; } = 0.5d;
@@ -43,10 +40,26 @@
 
         public double EarlyGameTargetShipRatio { get; set; } = 0.8d;
         public bool IsEarlyGameFeatureEnabled { get; set; } = true;
+        public int EarlyGameShipMinReturnedHalite { get { return GetEarlyGameShipMinReturnedHalite(); } }
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
         public int DetourTurnCount { get; set; } = 5;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
+
+        private int earlyGameShipMinReturnedHalite = -1;
+
+        private int GetEarlyGameShipMinReturnedHalite()
+        {
+            if (earlyGameShipMinReturnedHalite == -1)
+            {
+                int targetShipCount = (int)Math.Round((GameConstants.InitialHalite / (double)GameConstants.ShipCost) * EarlyGameTargetShipRatio);
+                int targetShipCountCost = targetShipCount * GameConstants.ShipCost;
+                int earlyGameShipCount = GameConstants.InitialHalite / GameConstants.ShipCost;
+                earlyGameShipMinReturnedHalite = (int)Math.Ceiling(targetShipCountCost / (double)earlyGameShipCount);
+            }
+
+            return earlyGameShipMinReturnedHalite;
+        }
     }
 }

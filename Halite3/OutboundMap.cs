@@ -17,6 +17,7 @@
         public ReturnMap ReturnMap { get; set; }
 
         public static double[][] EstimatedHarvestTimes;
+
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
         public DataMapLayer<double> HarvestTimeMap { get; private set; }
         public DataMapLayer<double> OutboundPaths { get; private set; }
@@ -28,7 +29,7 @@
             CalculateOutboundPaths();
         }
 
-        public double GetEstimatedJobTimeInNeighbourhood(Position center, int initialFill)
+        public double GetEstimatedJobTimeInNeighbourhood(Position center, int initialFill, bool isEarlyGameShip)
         {
             var disc = new Position[HarvestTimeMap.GetDiscArea(1)];
             HarvestTimeMap.GetDiscCells(center, 1, disc);
@@ -52,7 +53,15 @@
                 Debug.Assert(lostHaliteMultiplier >= 1d);
 
                 int halite = (int)AdjustedHaliteMap.Values[position];
-                int fillCategory = initialFill / InitialFillStepSize;
+                int adjustedInitialFill = initialFill;
+                if (isEarlyGameShip)
+                {
+                    int targetHalite = Math.Min(TuningSettings.EarlyGameShipMinReturnedHalite + 50, GameConstants.ShipCapacity);
+                    adjustedInitialFill += (GameConstants.ShipCapacity - targetHalite);
+                    adjustedInitialFill = Math.Min(adjustedInitialFill, GameConstants.ShipCapacity);
+                }
+
+                int fillCategory = adjustedInitialFill / InitialFillStepSize;
                 if (fillCategory > EstimatedHarvestTimes.Length)
                 {
                     return 1d;
@@ -128,9 +137,6 @@
             int cellCount = outboundPaths.CellCount;
             int maxAssignedCellCount = cellCount - forbiddenCellCount;
             int cellsAssigned = 0;
-            double stepPenaltyMultiplier = (IsEarlyGameMap) 
-                ? TuningSettings.OutboundMapEarlyGamePathStepPenaltyMultiplier
-                : TuningSettings.OutboundMapPathStepPenaltyMultiplier;
 
             // Plus one because I check it only on the source cell.
             int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius + 1;
@@ -215,7 +221,19 @@
             double centerWeightPlusOne = centerWeight + 1d;
             var harvestAreaMap = new DataMapLayer<double>(mapWidth, mapHeight);
             HarvestTimeMap = harvestAreaMap;
-            var emptyEstimatedHarvestTimes = EstimatedHarvestTimes[0];
+            double[] estimatedHarvestTimesToUse;
+            if (IsEarlyGameMap)
+            {
+                int targetHalite = Math.Min(TuningSettings.EarlyGameShipMinReturnedHalite + 50, GameConstants.ShipCapacity);
+                int initialFill = (GameConstants.ShipCapacity - targetHalite);
+                initialFill = Math.Min(initialFill, GameConstants.ShipCapacity);
+                int fillCategory = Math.Min(initialFill / InitialFillStepSize, EstimatedHarvestTimes.Length - 1);
+                estimatedHarvestTimesToUse = EstimatedHarvestTimes[fillCategory];
+            }
+            else
+            {
+                estimatedHarvestTimesToUse = EstimatedHarvestTimes[0];
+            }
             foreach (var position in HarvestTimeMap.AllPositions)
             {
                 double valueAtCell = adjustedHaliteValues[position];
@@ -225,7 +243,7 @@
                     : 0;
 
                 int intHalite = (int)weightedAverage;
-                harvestAreaMap[position] = emptyEstimatedHarvestTimes[intHalite];
+                harvestAreaMap[position] = estimatedHarvestTimesToUse[intHalite];
             }
 
             foreach (var dropoff in MyPlayer.Dropoffs)

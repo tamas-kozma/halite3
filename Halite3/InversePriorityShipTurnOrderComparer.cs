@@ -31,8 +31,8 @@
             Debug.Assert(x.Role == y.Role);
             if (x.Role == ShipRole.Harvester)
             {
-                double xJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(x.OriginPosition, x.Halite);
-                double yJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(y.OriginPosition, y.Halite);
+                double xJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(x.OriginPosition, x.Halite, x.IsEarlyGameShip);
+                double yJobTime = OutboundMap.GetEstimatedJobTimeInNeighbourhood(y.OriginPosition, y.Halite, y.IsEarlyGameShip);
                 if (xJobTime > 0 && yJobTime > 0 && xJobTime != yJobTime)
                 {
                     return Math.Sign(xJobTime - yJobTime);

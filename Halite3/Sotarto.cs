@@ -52,7 +52,6 @@
         private DataMapLayer<OpponentShip> allOpponentShipMap;
         private DataMapLayer<List<MyShip>> turnPredictionMap;
         private int earlyGameShipCount;
-        private int earlyGameShipMinReturnedHalite;
         private PushPathCalculator pushPathCalculator;
         private int totalHaliteOnMap;
         private OpponentHarvestAreaMap opponentHarvestAreaMap;
@@ -71,8 +70,6 @@
 
             shipQueue = new List<MyShip>(100);
             shipListBank = new ListBank<MyShip>();
-
-            earlyGameShipMinReturnedHalite = -1;
         }
 
         public int TurnNumber
@@ -226,7 +223,7 @@
 
                 if (bestShip.Role == ShipRole.Harvester)
                 {
-                    double jobTime = currentOutboundMap.GetEstimatedJobTimeInNeighbourhood(bestShip.Position, bestShip.Halite);
+                    double jobTime = currentOutboundMap.GetEstimatedJobTimeInNeighbourhood(bestShip.Position, bestShip.Halite, bestShip.IsEarlyGameShip);
                     if (jobTime > 0)
                     {
                         meanHarvesterJobTime = (meanHarvesterJobTime * harvesterJobsAssignedCount + jobTime) / (harvesterJobsAssignedCount + 1);
@@ -419,7 +416,7 @@
             if (ship.IsEarlyGameShip)
             {
                 int haliteLostOnTheWay = (int)(originReturnMap.CellData[ship.OriginPosition].SumHalite * GameConstants.MoveCostRatio);
-                int minHaliteToReturn = GetEarlyGameShipMinReturnedHalite() + haliteLostOnTheWay + 5;
+                int minHaliteToReturn = tuningSettings.EarlyGameShipMinReturnedHalite + haliteLostOnTheWay + 5;
                 if (ship.Halite >= minHaliteToReturn)
                 {
                     logger.LogDebug(ship + " turns homeward early.");
@@ -434,7 +431,7 @@
             if (!ship.HasFoundTooLittleHaliteToHarvestThisTurn)
             {
                 var outboundMap = GetOutboundMap(MapSetKind.Default);
-                double jobTime = outboundMap.GetEstimatedJobTimeInNeighbourhood(ship.OriginPosition, ship.Halite);
+                double jobTime = outboundMap.GetEstimatedJobTimeInNeighbourhood(ship.OriginPosition, ship.Halite, ship.IsEarlyGameShip);
                 if (jobTime > 0)
                 {
                     if (meanHarvesterJobTime != 0)
@@ -514,19 +511,6 @@
                     SetShipRole(ship, ShipRole.Inbound);
                 }
             }
-        }
-
-        private int GetEarlyGameShipMinReturnedHalite()
-        {
-            if (earlyGameShipMinReturnedHalite == -1)
-            {
-                int targetShipCount = (int)Math.Round((myPlayer.InitialHalite / (double)GameConstants.ShipCost) * tuningSettings.EarlyGameTargetShipRatio);
-                int targetShipCountCost = targetShipCount * GameConstants.ShipCost;
-                int earlyGameShipCount = myPlayer.InitialHalite / GameConstants.ShipCost;
-                earlyGameShipMinReturnedHalite = (int)Math.Ceiling(targetShipCountCost / (double)earlyGameShipCount);
-            }
-
-            return earlyGameShipMinReturnedHalite;
         }
 
         private bool HarvesterWantsToMoveTo(MyShip ship, double originHalite, Position neighbour, double neighbourHalite)

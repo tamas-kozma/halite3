@@ -68,6 +68,11 @@
         /// </summary>
         public static double InspiredMoveCostRatio;
 
+        /// <summary>
+        /// Amount of halite in the bank at game start.
+        /// </summary>
+        public static int InitialHalite;
+
         public static void PopulateFrom(Dictionary<string, string> dictionary)
         {
             ShipCost = int.Parse(dictionary["NEW_ENTITY_ENERGY_COST"], CultureInfo.InvariantCulture);
@@ -82,6 +87,7 @@
             InspiredExtractRatio = 1d / int.Parse(dictionary["INSPIRED_EXTRACT_RATIO"], CultureInfo.InvariantCulture);
             InspiredBonusMultiplier = double.Parse(dictionary["INSPIRED_BONUS_MULTIPLIER"], CultureInfo.InvariantCulture);
             InspiredMoveCostRatio = 1d / int.Parse(dictionary["INSPIRED_MOVE_COST_RATIO"], CultureInfo.InvariantCulture);
+            InitialHalite = int.Parse(dictionary["INITIAL_ENERGY"], CultureInfo.InvariantCulture);
         }
     }
 }
