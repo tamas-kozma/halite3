@@ -21,8 +21,6 @@
         public Dictionary<string, PlayerInfo> PlayerInfoMap;
         public BitMapLayer VisitedCells;
 
-        public BitMapLayer[] CellsAtDistance;
-
         public void Initialize()
         {
             MaxDistance = (HaliteMap.Width + HaliteMap.Height) / 2;
@@ -38,32 +36,12 @@
                 var cellsAtDistances = new PlayerInfo(this, player);
                 PlayerInfoMap[player.Id] = cellsAtDistances;
             }
-
-            ///
-            var myPlayerInfo = PlayerInfoMap[MyPlayer.Id];
-            myPlayerInfo.Reset();
-            CellsAtDistance = new BitMapLayer[MaxDistance + 1];
-            for (int distance = 0; distance <= MaxDistance; distance++)
-            {
-                var list = myPlayerInfo.DistanceLists[distance];
-                var bitmap = new BitMapLayer(HaliteMap.Width, HaliteMap.Height);
-                CellsAtDistance[distance] = bitmap;
-                foreach (var position in list)
-                {
-                    bitmap[position] = true;
-                }
-            }
         }
 
         public SimulationResult RunSimulation(int turnNumber, List<PlayerEvent> eventList)
         {
             TurnNumber = turnNumber;
             VisitedCells.Clear();
-            double remainingTimeRatio = (TotalTurns - TurnNumber) / (double)TotalTurns;
-            double harvestRatio = remainingTimeRatio * TuningSettings.SimulatorHarvestRatioMultiplier;
-            double outboundStepTime = OutboundMap.GetBaseOutboundStepTime();
-            double cellCost = harvestRatio / GameConstants.ExtractRatio;
-
             foreach (var playerInfo in PlayerInfoMap.Values)
             {
                 playerInfo.Reset();
@@ -78,49 +56,63 @@
             Debug.Assert(eventQueue.Count == 0 || eventQueue.Peek().TurnNumber >= TurnNumber);
 
             bool simulationDone = false;
-            int turn;
+            int turn = TurnNumber;
             int visitedCellCount = 0;
-            for (turn = TurnNumber; turn < TotalTurns; turn++)
+            int effectiveTotalTurns = TotalTurns - (MaxDistance / 4);
+            if (turn < effectiveTotalTurns)
             {
-                while (eventQueue.Count > 0 && eventQueue.PeekPriority() == turn)
+                double remainingTimeRatio = (effectiveTotalTurns - TurnNumber) / (double)effectiveTotalTurns;
+                double harvestRatio = remainingTimeRatio * TuningSettings.SimulatorHarvestRatioMultiplier;
+                double outboundStepTime = OutboundMap.GetBaseOutboundStepTime();
+                double cellCost = harvestRatio / GameConstants.ExtractRatio;
+                for (; turn < effectiveTotalTurns; turn++)
                 {
-                    var playerEvent = eventQueue.Dequeue();
-                    var playerInfo = PlayerInfoMap[playerEvent.Player.Id];
-                    playerInfo.Halite += playerEvent.HaliteChange;
-                    playerInfo.ShipCount += playerEvent.ShipCountChange;
-                    if (playerEvent.NewDropoffPosition.HasValue)
+                    while (eventQueue.Count > 0 && eventQueue.PeekPriority() == turn)
                     {
-                        var newDropoff = new Dropoff(playerInfo.Player)
+                        var playerEvent = eventQueue.Dequeue();
+                        var playerInfo = PlayerInfoMap[playerEvent.Player.Id];
+                        playerInfo.HaliteAdjustments += playerEvent.HaliteChange;
+                        playerInfo.ShipCount += playerEvent.ShipCountChange;
+                        if (playerEvent.NewDropoffPosition.HasValue)
                         {
-                            Age = 1,
-                            Position = playerEvent.NewDropoffPosition.Value
-                        };
+                            var newDropoff = new Dropoff(playerInfo.Player)
+                            {
+                                Age = 1,
+                                Position = playerEvent.NewDropoffPosition.Value
+                            };
 
-                        Debug.Assert(!playerInfo.Dropoffs.Any(dropoff => dropoff.Position == newDropoff.Position));
-                        playerInfo.Dropoffs.Add(newDropoff);
-                        playerInfo.UpdateDropoffDistances();
+                            Debug.Assert(!playerInfo.Dropoffs.Any(dropoff => dropoff.Position == newDropoff.Position));
+                            playerInfo.Dropoffs.Add(newDropoff);
+                            playerInfo.UpdateDropoffDistances();
+                        }
                     }
-                }
 
-                bool someoneHarvested = true;
-                while (someoneHarvested)
-                {
-                    someoneHarvested = false;
                     foreach (var playerInfo in PlayerInfoMap.Values)
                     {
                         playerInfo.ShipTurnsLeft += playerInfo.ShipCount;
-                        int distance = playerInfo.CurrentDistance;
-                        int positionIndex = playerInfo.CurrentIndex;
-                        int harvestedCellCount = playerInfo.HarvestedCellCount;
-                        List<Position> distanceList = null;
-                        if (playerInfo.ShipTurnsLeft > 0)
+                    }
+
+                    bool someoneHarvested = true;
+                    while (someoneHarvested)
+                    {
+                        someoneHarvested = false;
+                        foreach (var playerInfo in PlayerInfoMap.Values)
                         {
+                            if (playerInfo.ShipTurnsLeft <= 0)
+                            {
+                                continue;
+                            }
+
+                            int distance = playerInfo.CurrentDistance;
+                            int positionIndex = playerInfo.CurrentIndex;
+                            int harvestedCellCount = playerInfo.HarvestedCellCount;
+                            List<Position> distanceList = playerInfo.DistanceLists[distance];
                             double cost = 0;
                             double haliteInShip = 0;
                             bool firstCellFound = false;
                             while (haliteInShip < GameConstants.ShipCapacity)
                             {
-                                while (distanceList == null || positionIndex >= distanceList.Count)
+                                while (positionIndex >= distanceList.Count)
                                 {
                                     if (distance == MaxDistance)
                                     {
@@ -129,7 +121,6 @@
                                     }
 
                                     distance++;
-                                    //Logger.LogInfo("distance=" + distance + ", playerInfo.DistanceLists.Length=" + playerInfo.DistanceLists.Length);
                                     distanceList = playerInfo.DistanceLists[distance];
                                     positionIndex = 0;
                                 }
@@ -148,7 +139,7 @@
                                         firstCellFound = true;
                                     }
 
-                                    cost += cellCost;
+                                    cost += cellCost + 1;
                                     haliteInShip += HaliteMap[position] * harvestRatio;
                                     visitedCellCount++;
                                     harvestedCellCount++;
@@ -162,29 +153,44 @@
                             {
                                 cost += distance * outboundStepTime;
                                 playerInfo.ShipTurnsLeft -= cost;
-                                playerInfo.Halite += (int)Math.Ceiling(haliteInShip);
+                                playerInfo.ShipTurnsUsed += cost;
+                                playerInfo.HaliteCollected += (int)Math.Ceiling(haliteInShip);
                                 someoneHarvested = true;
                             }
 
+                            playerInfo.CurrentDistance = distance;
+                            playerInfo.CurrentIndex = positionIndex;
+                            playerInfo.HarvestedCellCount = harvestedCellCount;
+
                             if (simulationDone)
                             {
-                                break;
+                                goto SIMULATION_DONE;
                             }
-                        }
-
-                        playerInfo.CurrentDistance = distance;
-                        playerInfo.CurrentIndex = positionIndex;
-                        playerInfo.HarvestedCellCount = harvestedCellCount;
-
-                        if (simulationDone)
-                        {
-                            goto SIMULATION_DONE;
                         }
                     }
                 }
             }
 
             SIMULATION_DONE:
+            int simulationTurnCount = turn - TurnNumber;
+            int remainingTurnCount = effectiveTotalTurns - turn;
+            foreach (var playerInfo in PlayerInfoMap.Values)
+            {
+                playerInfo.ShipTurnsLeft += remainingTurnCount * playerInfo.ShipCount;
+                double totalShipTurns = playerInfo.ShipTurnsUsed + playerInfo.ShipTurnsLeft;
+                if (playerInfo.ShipTurnsUsed > 0)
+                {
+                    double shipTurnRatio = totalShipTurns / playerInfo.ShipTurnsUsed;
+                    playerInfo.HaliteCollected = (int)Math.Round(playerInfo.HaliteCollected * shipTurnRatio);
+                }
+            }
+
+            foreach (var playerInfo in PlayerInfoMap.Values)
+            {
+                int totalHaliteInShips = playerInfo.Player.Ships.Sum(ship => ship.Halite);
+                playerInfo.HaliteCollected += totalHaliteInShips;
+            }
+
             var result = new SimulationResult()
             {
                 PlayerResultMap = new Dictionary<string, PlayerResult>(),
@@ -199,8 +205,8 @@
                 var playerResult = new PlayerResult()
                 {
                     Player = playerInfo.Player,
-                    NetHalite = playerInfo.Halite - playerInfo.Player.Halite,
-                    Halite = playerInfo.Halite,
+                    NetHalite = playerInfo.HaliteCollected,
+                    Halite = playerInfo.InitialHalite + playerInfo.HaliteAdjustments + playerInfo.HaliteCollected,
                     HarvestedCellCount = playerInfo.HarvestedCellCount
                 };
 
@@ -256,10 +262,13 @@
             public int ShipCount;
             public double ShipTurnsLeft;
             public DataMapLayer<int> HaliteMap;
-            public int Halite;
+            public int HaliteCollected;
+            public int InitialHalite;
+            public int HaliteAdjustments;
             public int CurrentDistance;
             public int CurrentIndex;
             public int HarvestedCellCount;
+            public double ShipTurnsUsed;
 
             public PlayerInfo(GameSimulator simulator, Player player)
             {
@@ -277,7 +286,9 @@
 
             public void Reset()
             {
-                Halite = Player.Halite;
+                InitialHalite = Player.Halite;
+                HaliteCollected = 0;
+                HaliteAdjustments = 0;
                 Dropoffs.Clear();
                 Dropoffs.AddRange(Player.Dropoffs);
                 DropoffDistanceMap = Player.DistanceFromDropoffMap;
@@ -286,6 +297,7 @@
                 CurrentDistance = 0;
                 CurrentIndex = 0;
                 HarvestedCellCount = 0;
+                ShipTurnsUsed = 0;
                 PopulateDistanceLists();
             }
 

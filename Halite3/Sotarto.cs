@@ -111,7 +111,7 @@
 
                 var simulationResult = simulator.RunSimulation(TurnNumber, new List<GameSimulator.PlayerEvent>());
                 logger.LogInfo(simulationResult.ToString());
-                PaintMap(simulationResult.VisitedCells, "SimulationVisitedCells" + TurnNumber.ToString().PadLeft(3, '0'));
+                //PaintMap(simulationResult.VisitedCells, "SimulationVisitedCells" + TurnNumber.ToString().PadLeft(3, '0'));
 
                 if (myPlayer.MyShips.Count <= 60
                     && myPlayer.Halite >= GameConstants.ShipCost + (builderList.Count * GameConstants.DropoffCost)
@@ -1162,13 +1162,6 @@
             };
 
             simulator.Initialize();
-
-            for (int distance = 0; distance <= simulator.CellsAtDistance.Length; distance++)
-            {
-                PaintMap(simulator.CellsAtDistance[distance], "CellsAtDistance" + distance.ToString().PadLeft(2, '0'));
-            }
-
-            throw new Exception();
 
             haliteEngineInterface.Ready(Name);
         }
