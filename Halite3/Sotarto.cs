@@ -1814,7 +1814,7 @@
 
             var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
             var myDistanceFromEstablishedDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            myPlayer.UpdateDropoffDistances(myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
+            myPlayer.UpdateDropoffDistances(myPlayer.Dropoffs, myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
             foreach (var player in opponentPlayers)
             {
                 foreach (var dropoff in player.Dropoffs)

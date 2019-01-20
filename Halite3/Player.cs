@@ -74,9 +74,9 @@
             }
         }
 
-        public void UpdateDropoffDistances(DataMapLayer<int> map, int minAge = 0)
+        public static void UpdateDropoffDistances(IEnumerable<Dropoff> dropoffs, DataMapLayer<int> map, int minAge = int.MinValue)
         {
-            var eligibleDropoffPositions = Dropoffs
+            var eligibleDropoffPositions = dropoffs
                 .Where(dropoff => dropoff.Age >= minAge)
                 .Select(dropoff => dropoff.Position)
                 .ToArray();
@@ -86,7 +86,7 @@
                 int minDistance = int.MaxValue;
                 foreach (var dropoffPosition in eligibleDropoffPositions)
                 {
-                    int distance = DistanceFromDropoffMap.WraparoundDistance(position, dropoffPosition);
+                    int distance = map.WraparoundDistance(position, dropoffPosition);
                     if (distance < minDistance)
                     {
                         minDistance = distance;
@@ -99,7 +99,7 @@
 
         protected void UpdateDropoffDistances()
         {
-            UpdateDropoffDistances(DistanceFromDropoffMap);
+            UpdateDropoffDistances(Dropoffs, DistanceFromDropoffMap);
             foreach (var ship in Ships)
             {
                 ship.DistanceFromDropoff = DistanceFromDropoffMap[ship.Position];

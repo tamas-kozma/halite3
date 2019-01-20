@@ -48,6 +48,8 @@ namespace Halite3
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
 
+        public double SimulatorHarvestRatioMultiplier { get; set; } = 1d;
+
         private int earlyGameShipMinReturnedHalite = -1;
 
         private int GetEarlyGameShipMinReturnedHalite()

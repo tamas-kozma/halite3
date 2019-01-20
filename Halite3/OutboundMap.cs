@@ -80,7 +80,7 @@
             return bestTime;
         }
 
-        private double GetBaseOutboundStepTime()
+        public static double GetBaseOutboundStepTime()
         {
             double outboundDistanceOnOneTank = GameConstants.ExtractRatio / GameConstants.MoveCostRatio;
             double outboundPathFuelPenaltyMultiplier = (1d + outboundDistanceOnOneTank) / outboundDistanceOnOneTank;

@@ -97,3 +97,15 @@
 ** Adjust these halite amounts for inspiredness within opponent harvest zones
 ** For each harvester, based on the halite amounts (including inspiration bonus) and return path distance, estimate job duration
 ** For each harvester, if their jobs take a lot longer than the average so long, turn into outbound again
+* What's left
+** Make the ship map in the expansion map permanent - if I was somewhere I can be there again
+** Make the halite max search in the expansion map also look at neighbours
+** Make the min/max distances in the expansion map configurable or depend on the map sizes
+** Implement lemmings
+** Implement the simulator
+** Make it possible to have planned dropoffs and adjust logic to take that into consideration
+*** It is fine to always only have at most one such
+*** Only consider a planned dropoff if I have the money for it, to avoid inbound ships goind there and not giving me money
+** Implement interceptors
+** Write GG when winning anyway
+** Add a more precise inspired map for harvesters based on predicted opponent actions
