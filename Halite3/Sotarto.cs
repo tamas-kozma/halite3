@@ -98,27 +98,8 @@
                 var turnStartTime = DateTime.Now;
                 logger.LogDebug("------------------- " + turnMessage.TurnNumber + " -------------------");
 
-                if (builderList.Count == 0 && myPlayer.Dropoffs.Count <= (TurnNumber / 100))
-                {
-                    var builderCandidate = FindBestBuilder();
-                    if (builderCandidate != null)
-                    {
-                        SetShipRole(builderCandidate, ShipRole.Builder);
-                    }
-                }
-
                 AssignOrdersToAllShips();
-
-                var simulationResult = simulator.RunSimulation(TurnNumber, new List<GameSimulator.PlayerEvent>());
-                logger.LogInfo(simulationResult.ToString());
-                //PaintMap(simulationResult.VisitedCells, "SimulationVisitedCells" + TurnNumber.ToString().PadLeft(3, '0'));
-
-                if (myPlayer.MyShips.Count <= 60
-                    && myPlayer.Halite >= GameConstants.ShipCost + (builderList.Count * GameConstants.DropoffCost)
-                    && !forbiddenCellsMap[myPlayer.ShipyardPosition])
-                {
-                    myPlayer.BuildShip();
-                }
+                DoMacroTasks();
 
                 var turnTime = DateTime.Now - turnStartTime;
                 logger.LogDebug("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
@@ -126,6 +107,76 @@
                 var commands = new CommandList();
                 commands.PopulateFromPlayer(myPlayer);
                 haliteEngineInterface.EndTurn(commands);
+            }
+        }
+
+        private void DoMacroTasks()
+        {
+            bool buildShip = false;
+            bool buildDropoff = false;
+
+            var normalSimulationResult = simulator.RunSimulation(TurnNumber);
+            var buildShipSimulationResult = simulator.RunSimulation(TurnNumber, 
+                simulator.GetMyPlayerBuildShipEvent(1));
+
+            logger.LogInfo("normal: " + normalSimulationResult);
+            logger.LogInfo("just ship: " + buildShipSimulationResult);
+
+            int justShipHalite = buildShipSimulationResult.MyPlayerResult.Halite;
+            if (justShipHalite > normalSimulationResult.MyPlayerResult.Halite)
+            {
+                var buildDropoffSecondEventPair = simulator.GetMyPlayerBuildDropoffEvent(2, 10, expansionMap.BestDropoffPosition);
+                var buildShipAndDropoffSimulationResult = simulator.RunSimulation(TurnNumber,
+                    simulator.GetMyPlayerBuildShipEvent(1),
+                    buildDropoffSecondEventPair.Item1, buildDropoffSecondEventPair.Item2);
+
+                var buildDropoffFirstEventPair = simulator.GetMyPlayerBuildDropoffEvent(1, 10, expansionMap.BestDropoffPosition);
+                var buildDropoffAndShipSimulationResult = simulator.RunSimulation(TurnNumber,
+                    buildDropoffFirstEventPair.Item1, buildDropoffFirstEventPair.Item2,
+                    simulator.GetMyPlayerBuildShipEvent(10));
+
+                int shipAndDropoffHalite = buildShipAndDropoffSimulationResult.MyPlayerResult.Halite;
+                int dropoffAndShipHalite = buildDropoffAndShipSimulationResult.MyPlayerResult.Halite;
+                bool isShipThenDropoffBetterThanOtherWayAround = (shipAndDropoffHalite > dropoffAndShipHalite);
+                if ((justShipHalite > shipAndDropoffHalite
+                    && justShipHalite > dropoffAndShipHalite)
+                    || isShipThenDropoffBetterThanOtherWayAround)
+                {
+                    buildShip = true;
+                }
+                else
+                {
+                    buildDropoff = true;
+                }
+            }
+
+            if (!buildDropoff && builderList.Count > 0)
+            {
+                foreach (var builder in builderList.ToArray())
+                {
+                    SetShipRole(builder, ShipRole.Outbound);
+                }
+            }
+
+            if (buildShip)
+            {
+                if (myPlayer.Halite >= GameConstants.ShipCost
+                    && !forbiddenCellsMap[myPlayer.ShipyardPosition])
+                {
+                    myPlayer.BuildShip();
+                }
+            }
+
+            if (buildDropoff)
+            {
+                if (builderList.Count == 0)
+                {
+                    var builderCandidate = FindBestBuilder();
+                    if (builderCandidate != null)
+                    {
+                        SetShipRole(builderCandidate, ShipRole.Builder);
+                    }
+                }
             }
         }
 

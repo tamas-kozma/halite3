@@ -38,7 +38,35 @@
             }
         }
 
-        public SimulationResult RunSimulation(int turnNumber, List<PlayerEvent> eventList)
+        public PlayerEvent GetMyPlayerBuildShipEvent(int turnNumber)
+        {
+            return new PlayerEvent()
+            {
+                Player = MyPlayer,
+                TurnNumber = turnNumber,
+                HaliteChange = -1 * GameConstants.ShipCost,
+                ShipCountChange = 1
+            };
+        }
+
+        public (PlayerEvent, PlayerEvent) GetMyPlayerBuildDropoffEvent(int builderAssignedTurnNumber, int buildDelay, Position position)
+        {
+            return (new PlayerEvent()
+                {
+                    Player = MyPlayer,
+                    TurnNumber = builderAssignedTurnNumber,
+                    ShipCountChange = -1
+                },
+                new PlayerEvent()
+                {
+                    Player = MyPlayer,
+                    TurnNumber = builderAssignedTurnNumber + buildDelay,
+                    HaliteChange = -1 * GameConstants.DropoffCost,
+                    NewDropoffPosition = position
+                });
+        }
+
+        public SimulationResult RunSimulation(int turnNumber, params PlayerEvent[] events)
         {
             TurnNumber = turnNumber;
             VisitedCells.Clear();
@@ -47,8 +75,8 @@
                 playerInfo.Reset();
             }
 
-            var eventQueue = new PriorityQueue<int, PlayerEvent>(eventList.Count);
-            foreach (var playerEvent in eventList)
+            var eventQueue = new PriorityQueue<int, PlayerEvent>(events.Length);
+            foreach (var playerEvent in events)
             {
                 eventQueue.Enqueue(playerEvent.TurnNumber, playerEvent);
             }
@@ -172,6 +200,16 @@
             }
 
             SIMULATION_DONE:
+            foreach (var playerEvent in eventQueue)
+            {
+                if (playerEvent.TurnNumber > TotalTurns)
+                {
+                    continue;
+                }
+
+                PlayerInfoMap[playerEvent.Player.Id].HaliteAdjustments += playerEvent.HaliteChange;
+            }
+
             int simulationTurnCount = turn - TurnNumber;
             int remainingTurnCount = effectiveTotalTurns - turn;
             foreach (var playerInfo in PlayerInfoMap.Values)
@@ -213,6 +251,19 @@
                 result.PlayerResultMap[playerInfo.Player.Id] = playerResult;
             }
 
+            result.MyPlayerResult = result.PlayerResultMap[MyPlayer.Id];
+            int myHalite = result.MyPlayerResult.Halite;
+            int standing = 1;
+            foreach (var playerResult in result.PlayerResultMap.Values)
+            {
+                if (playerResult.Halite > myHalite)
+                {
+                    standing++;
+                }
+            }
+
+            result.MyPlayerStanding = standing;
+
             return result;
         }
 
@@ -223,10 +274,12 @@
             public int SimulationEndTurn;
             public int VisitedCellCount;
             public double VisitedCellRatio;
+            public PlayerResult MyPlayerResult;
+            public int MyPlayerStanding;
 
             public override string ToString()
             {
-                return "Simulation result: end turn=" + SimulationEndTurn + ", VisitedCellRatio=" + VisitedCellRatio + ", player results: " + string.Join(" ", PlayerResultMap.Values);
+                return "Simulation result: my standing=" + MyPlayerStanding + ", my halite = " + MyPlayerResult.Halite + ", end turn=" + SimulationEndTurn + ", VisitedCellRatio=" + VisitedCellRatio + ", player results: " + string.Join(" ", PlayerResultMap.Values);
             }
         }
 
@@ -293,6 +346,8 @@
                 Dropoffs.AddRange(Player.Dropoffs);
                 DropoffDistanceMap = Player.DistanceFromDropoffMap;
                 ShipCount = Player.Ships.Count;
+                int plannedDropoffCount = Player.Dropoffs.Count(dropoff => dropoff.IsPlanned);
+                ShipCount -= plannedDropoffCount;
                 ShipTurnsLeft = 0;
                 CurrentDistance = 0;
                 CurrentIndex = 0;

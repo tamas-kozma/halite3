@@ -15,7 +15,7 @@
 
         public bool IsPlanned
         {
-            get { return Age < 0; }
+            get { return Age <= 0; }
         }
 
         public override string ToString()

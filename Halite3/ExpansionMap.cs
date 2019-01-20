@@ -20,6 +20,7 @@
         public DataMapLayer<int>[] CoarseShipCountMaps;
         public DataMapLayer<double> Paths;
         public bool SuitableLocationExists;
+        public Position BestDropoffPosition;
 
         public void Calculate()
         {
@@ -108,6 +109,10 @@
             }
 
             SuitableLocationExists = (queue.Count > 0);
+            if (SuitableLocationExists)
+            {
+                BestDropoffPosition = queue.Peek();
+            }
 
             while (queue.Count > 0)
             {

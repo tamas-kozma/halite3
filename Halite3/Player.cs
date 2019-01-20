@@ -111,7 +111,7 @@
             var messagesById = playerMessage.Dropoffs.ToDictionary(message => message.DropoffId);
             foreach (var dropoff in Dropoffs)
             {
-                if (!dropoff.IsPlanned)
+                if (dropoff.Age >= 0)
                 {
                     dropoff.Age++;
                 }
