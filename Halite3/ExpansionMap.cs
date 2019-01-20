@@ -5,7 +5,7 @@
 
     public sealed class ExpansionMap
     {
-        private static int CoarseCellSize = 8;
+        private static readonly int CoarseCellSize = 8;
 
         public TuningSettings TuningSettings;
         public DataMapLayer<int> HaliteMap;

@@ -60,6 +60,7 @@
         private int totalTurnCount;
         private ExpansionMap expansionMap;
         private List<MyShip> builderList;
+        private GameSimulator simulator;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -108,6 +109,10 @@
 
                 AssignOrdersToAllShips();
 
+                var simulationResult = simulator.RunSimulation(TurnNumber, new List<GameSimulator.PlayerEvent>());
+                logger.LogInfo(simulationResult.ToString());
+                PaintMap(simulationResult.VisitedCells, "SimulationVisitedCells" + TurnNumber.ToString().PadLeft(3, '0'));
+
                 if (myPlayer.MyShips.Count <= 60
                     && myPlayer.Halite >= GameConstants.ShipCost + (builderList.Count * GameConstants.DropoffCost)
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
@@ -145,7 +150,7 @@
                 ship.HasFoundTooLittleHaliteToHarvestThisTurn = false;
 
                 if (myPlayer.TotalReturnedHalite == 0
-                    && ship.Position == myPlayer.ShipyardPosition 
+                    && ship.Position == myPlayer.ShipyardPosition
                     && ship.Role == ShipRole.Outbound
                     && !ship.IsEarlyGameShip
                     && tuningSettings.IsEarlyGameFeatureEnabled)
@@ -390,7 +395,7 @@
             ship.Destination = optimalDestination;
             ship.DistanceFromDestination = optimalDestinationDistance;
 
-            if (ship.Role == ShipRole.Outbound 
+            if (ship.Role == ShipRole.Outbound
                 && optimalDestinationDistance < tuningSettings.OutboundShipSwitchToOriginMapDistance
                 && !ship.IsOutboundGettingClose)
             {
@@ -672,8 +677,8 @@
             }
 
             double haliteRatio = originHalite / neighbourHalite;
-            double threshold = (ship.IsBlockedHarvesterTryingHarder) 
-                ? tuningSettings.HarvesterBlockedMoveThresholdHaliteRatio 
+            double threshold = (ship.IsBlockedHarvesterTryingHarder)
+                ? tuningSettings.HarvesterBlockedMoveThresholdHaliteRatio
                 : tuningSettings.HarvesterMoveThresholdHaliteRatio;
 
             return (haliteRatio < threshold);
@@ -762,7 +767,7 @@
 
             if (ship.Role == ShipRole.Outbound)
             {
-                if (ship.Destination.HasValue && ship.DistanceFromDestination == 1 
+                if (ship.Destination.HasValue && ship.DistanceFromDestination == 1
                     && !ship.IsBlockedOutboundTurnedHarvester)
                 {
                     ship.IsBlockedOutboundTurnedHarvester = true;
@@ -854,9 +859,9 @@
 
             void UpdateIfBetter(Position candidate, double candidateValue, ref Position bestSoFar, ref double bestSoFarValue)
             {
-                if (candidateValue > bestSoFarValue 
-                    || (tiebreakerIsBetter != null 
-                        && candidateValue == bestSoFarValue 
+                if (candidateValue > bestSoFarValue
+                    || (tiebreakerIsBetter != null
+                        && candidateValue == bestSoFarValue
                         && tiebreakerIsBetter.Invoke(candidate, bestSoFar)))
                 {
                     bestSoFar = candidate;
@@ -1011,7 +1016,7 @@
                         {
                             logger.LogDebug(pushedShip + " gets pushed to suboptimal " + pushTo + ".");
                         }
-                        
+
                         Debug.Assert(pushedShip != null && !pushedShip.HasActionAssigned);
                         ProcessShipOrderCore(pushedShip, pushTo, false);
                         pushTo = pushFrom;
@@ -1145,6 +1150,26 @@
                 AllOpponentShipMap = allOpponentShipMap
             };
 
+            simulator = new GameSimulator()
+            {
+                HaliteMap = originHaliteMap,
+                Logger = logger,
+                MapBooster = mapBooster,
+                MyPlayer = myPlayer,
+                Opponents = opponentPlayers,
+                TotalTurns = totalTurnCount,
+                TuningSettings = tuningSettings
+            };
+
+            simulator.Initialize();
+
+            for (int distance = 0; distance <= simulator.CellsAtDistance.Length; distance++)
+            {
+                PaintMap(simulator.CellsAtDistance[distance], "CellsAtDistance" + distance.ToString().PadLeft(2, '0'));
+            }
+
+            throw new Exception();
+
             haliteEngineInterface.Ready(Name);
         }
 
@@ -1245,7 +1270,7 @@
 
         private bool IsForbidden(MyShip ship, Position position, bool ignoreBlocker = false)
         {
-            Debug.Assert(!ship.HasActionAssigned 
+            Debug.Assert(!ship.HasActionAssigned
                 && originHaliteMap.WraparoundDistance(ship.OriginPosition, position) == 1);
 
             if (forbiddenCellsMap[position])
@@ -1370,7 +1395,7 @@
                 int availableCapacity = GameConstants.ShipCapacity - haliteInShip;
                 int extractableAmount = GetExtractedAmountIgnoringCapacity(localHalite);
                 if (extractableAmount == 0
-                    || (haliteInShip > tuningSettings.HarvesterMinimumFillDefault 
+                    || (haliteInShip > tuningSettings.HarvesterMinimumFillDefault
                         && extractableAmount > availableCapacity))
                 {
                     break;
@@ -1674,7 +1699,7 @@
                         ship.AssumedRole = ShipRole.Outbound;
                     }
 
-                    if (!ship.AssumedRole.HasValue 
+                    if (!ship.AssumedRole.HasValue
                         && (ship.Halite > tuningSettings.OpponentShipCertainlyInboundMinHalite
                             || (ship.Halite > tuningSettings.OpponentShipLikelyInboundMinHalite
                                 && dropoffDistance < previousDropoffDistance
@@ -1683,7 +1708,7 @@
                         ship.AssumedRole = ShipRole.Inbound;
                     }
 
-                    if (!ship.AssumedRole.HasValue 
+                    if (!ship.AssumedRole.HasValue
                         && (ship.Halite < tuningSettings.OpponentShipLikelyInboundMinHalite
                             && ship.PreviousPosition == ship.Position
                             && !ship.WasOutOfFuelLastTurn
@@ -1692,7 +1717,7 @@
                         ship.AssumedRole = ShipRole.Harvester;
                     }
 
-                    if (!ship.AssumedRole.HasValue 
+                    if (!ship.AssumedRole.HasValue
                         && (dropoffDistance > previousDropoffDistance
                             && haliteRatio > tuningSettings.OpponentHarvesterMoveThresholdHaliteRatio))
                     {
@@ -1814,7 +1839,7 @@
 
             var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
             var myDistanceFromEstablishedDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            myPlayer.UpdateDropoffDistances(myPlayer.Dropoffs, myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
+            Player.UpdateDropoffDistances(myPlayer.Dropoffs, myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
             foreach (var player in opponentPlayers)
             {
                 foreach (var dropoff in player.Dropoffs)
@@ -1863,6 +1888,18 @@
             Debug.Assert(ship == null || ship.Position == position);
             Debug.Assert(ship == null || (ship.Owner as OpponentPlayer).GetFromOpponentShipMap(position) == ship);
             return ship;
+        }
+
+        //[Conditional("DEBUG")]
+        public void PaintMap(BitMapLayer map, string name)
+        {
+            var intMap = new DataMapLayer<int>(map.Width, map.Height);
+            foreach (var position in map.AllPositions)
+            {
+                intMap[position] = (map[position]) ? 100 : 0;
+            }
+
+            PaintMap(intMap, name);
         }
 
         //[Conditional("DEBUG")]
