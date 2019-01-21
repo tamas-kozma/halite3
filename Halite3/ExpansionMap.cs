@@ -184,7 +184,7 @@
             foreach (var dropoffPosition in AllDropoffPositions)
             {
                 int distance = MapBooster.Distance(dropoffPosition, position);
-                if (distance < /*CoarseCellSize * 2*/3)
+                if (distance < CoarseCellSize * 2)
                 {
                     return true;
                 }
