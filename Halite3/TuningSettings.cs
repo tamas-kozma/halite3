@@ -44,6 +44,7 @@ namespace Halite3
         public int EarlyGameShipMinReturnedHalite { get { return GetEarlyGameShipMinReturnedHalite(); } }
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
         public int DetourTurnCount { get; set; } = 5;
+        public double LemmingDropoffTurnCapacity { get; set; } = 3d;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;

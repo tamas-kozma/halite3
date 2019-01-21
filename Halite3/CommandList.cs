@@ -2,6 +2,7 @@
 {
     using System.Collections;
     using System.Collections.Generic;
+    using System.Linq;
 
     public sealed class CommandList : IEnumerable<string>
     {
@@ -19,7 +20,7 @@
                 SpawnShip();
             }
 
-            foreach (var ship in player.MyShips)
+            foreach (var ship in player.MyShips.Concat(player.SinkingShips))
             {
                 if (ship.IsBuildingDropoff)
                 {

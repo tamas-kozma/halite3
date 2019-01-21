@@ -11,6 +11,7 @@
         public DataMapLayer<MyShip> MyShipMap { get; private set; }
         public MyShip NewShip { get; private set; }
         public List<Dropoff> NewDropoffs { get; private set; } = new List<Dropoff>();
+        public List<MyShip> SinkingShips { get; private set; } = new List<MyShip>();
 
         public override void Initialize(PlayerInitializationMessage playerMessage, DataMapLayer<int> initialHaliteMap)
         {
@@ -55,7 +56,6 @@
             UpdateDropoffDistances();
 
             builder.IsBuildingDropoff = true;
-            builder.HasActionAssigned = true;
         }
 
         public MyShip GetFromMyShipMap(Position position)
@@ -100,6 +100,8 @@
 
         protected override void HandleShipMessages(PlayerUpdateMessage playerMessage)
         {
+            SinkingShips.Clear();
+
             if (NewShip != null)
             {
                 var newShipMessage = playerMessage.Ships.FirstOrDefault(shipMessage => shipMessage.Position == NewShip.Position);

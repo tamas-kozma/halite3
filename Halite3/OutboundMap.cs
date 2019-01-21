@@ -104,17 +104,12 @@
             var queue = new DoublePriorityQueue<PositionWithStepTime>(estimatedMaxQueueSize);
             var returnDistanceMap = ReturnMap.CellData;
             int skippedForbiddenCellCount = 0;
-            int opponentDropoffNoGoZoneRadius = TuningSettings.MapOpponentDropoffNoGoZoneRadius;
             foreach (var position in harvestTimeMap.AllPositions)
             {
                 double baseHarvestTime = harvestTimeMap[position];
                 if (forbiddenCellsMap[position])
                 {
-                    if (AllOpponentDropoffDistanceMap[position] > opponentDropoffNoGoZoneRadius)
-                    {
-                        skippedForbiddenCellCount++;
-                    }
-
+                    skippedForbiddenCellCount++;
                     continue;
                 }
 
@@ -159,8 +154,6 @@
 
                 int distanceFromMyDropoff = distanceFromMyDropoffMap[position];
                 bool isCloseToMyDropoff = (distanceFromMyDropoff <= outboundMapDropoffAvoidanceRadius);
-                int distanceFromOpponentDropoff = AllOpponentDropoffDistanceMap[position];
-                bool isCloseToOpponentDropoff = (distanceFromOpponentDropoff < opponentDropoffNoGoZoneRadius);
 
                 outboundPaths[position] = newTime;
                 cellsAssigned++;
@@ -182,25 +175,21 @@
                     }
 
                     int neighbourDistanceFromOpponentDropoff = AllOpponentDropoffDistanceMap[neighbour];
-                    if (forbiddenCellsMap[neighbour]
-                        && neighbourDistanceFromOpponentDropoff > opponentDropoffNoGoZoneRadius)
+                    if (forbiddenCellsMap[neighbour])
                     {
                         continue;
                     }
 
-                    if (isCloseToOpponentDropoff)
+                    if (isCloseToMyDropoff)
                     {
-                        if (neighbourDistanceFromOpponentDropoff > distanceFromOpponentDropoff)
+                        int distanceFromOpponentDropoff = AllOpponentDropoffDistanceMap[neighbour];
+                        if (distanceFromOpponentDropoff > TuningSettings.MapOpponentDropoffNoGoZoneRadius)
                         {
-                            continue;
-                        }
-                    }
-                    else if (isCloseToMyDropoff)
-                    {
-                        int neighbourDistanceFromMyDropoff = distanceFromMyDropoffMap[neighbour];
-                        if (neighbourDistanceFromMyDropoff > distanceFromMyDropoff)
-                        {
-                            continue;
+                            int neighbourDistanceFromMyDropoff = distanceFromMyDropoffMap[neighbour];
+                            if (neighbourDistanceFromMyDropoff > distanceFromMyDropoff)
+                            {
+                                continue;
+                            }
                         }
                     }
 

@@ -10,6 +10,7 @@
     public sealed class Sotarto
     {
         private const string Name = "Sotarto";
+        private static readonly bool IsReleaseVersion = false;
 
         private readonly Logger logger;
         private readonly Random random;
@@ -44,7 +45,7 @@
         private OutboundMap originDetourOutboundMap;
         private InversePriorityShipTurnOrderComparer shipTurnOrderComparer;
         private BitMapLayer forbiddenCellsMap;
-        private BitMapLayer permanentForbiddenCellsMap;
+        private BitMapLayer opponentDropoffForbiddenCellsMap;
         private BitMapLayer originForbiddenCellsMap;
         private MapBooster mapBooster;
         private bool areHaliteBasedMapsDirty;
@@ -63,6 +64,9 @@
         private GameSimulator simulator;
         private MacroEngine macroEngine;
         private DataMapLayer<int> allOpponentDropoffDistanceMap;
+        private MyShip shipCurrentlyBeingAssignedAnOrder;
+        private LemmingDisease lemmingDisease;
+        private DataMapLayer<double> doubleDropoffDistanceMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -77,6 +81,8 @@
             shipQueue = new List<MyShip>(100);
             shipListBank = new ListBank<MyShip>();
             builderList = new List<MyShip>();
+
+            logger.IsMuted = IsReleaseVersion;
         }
 
         public int TurnNumber
@@ -224,6 +230,8 @@
                     }
                 }
 
+                shipCurrentlyBeingAssignedAnOrder = bestShip;
+
                 if (!bestShip.HasActionAssigned)
                 {
                     TryAssignOrderToShip(bestShip);
@@ -295,7 +303,7 @@
 
         private void TurnShipsIntoLemmings()
         {
-
+            lemmingDisease.Infect(TurnNumber);
         }
 
         private MyShip FindBestBuilder(bool considerOnlyNotAlreadyBuilders = false)
@@ -390,6 +398,11 @@
                     ship.MapDirection = 1;
                     break;
 
+                case ShipRole.Lemming:
+                    ship.Map = GetLemmingMap();
+                    ship.MapDirection = -1;
+                    break;
+
                 default:
                     ship.Map = null;
                     break;
@@ -478,10 +491,72 @@
                     TryAssignOrderToBuilder(ship);
                     break;
 
+                case ShipRole.Lemming:
+                    TryAssignOrderToLemming(ship);
+                    break;
+
+                case ShipRole.SittingDuck:
+                    ProcessShipOrder(ship, ship.OriginPosition);
+                    break;
+
                 default:
                     Debug.Fail("Unexpected ship role.");
                     ProcessShipOrder(ship, ship.OriginPosition);
                     break;
+            }
+        }
+
+        private void TryAssignOrderToLemming(MyShip ship)
+        {
+            if (ship.DistanceFromDropoff == 0)
+            {
+                SetShipRole(ship, ShipRole.SittingDuck);
+                return;
+            }
+            else if (ship.DistanceFromDropoff == 1)
+            {
+                ProcessShipOrder(ship, ship.DesiredNextPosition.Value);
+                return;
+            }
+
+            if (GoAwayFromOpponentDropoffIfNeeded(ship))
+            {
+                return;
+            }
+
+            var shipMap = myPlayer.MyShipMap;
+            var disc = new Position[shipMap.GetDiscArea(2)];
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship, IsBetter);
+            if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
+            {
+                AssignOrderToBlockedShip(ship, neighbourhoodInfo);
+                return;
+            }
+
+            ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
+            return;
+
+            bool IsBetter(Position position1, Position position2)
+            {
+                int lemmingCount1 = CountLemmingsAround(position1);
+                int lemmingCount2 = CountLemmingsAround(position2);
+                return lemmingCount1 < lemmingCount2;
+            }
+
+            int CountLemmingsAround(Position position)
+            {
+                shipMap.GetDiscCells(position, 2, disc);
+                int lemmingCount = 0;
+                foreach (var discPosition in disc)
+                {
+                    var shipAtPosition = shipMap[discPosition];
+                    if (shipAtPosition != null && shipAtPosition.Role == ShipRole.Lemming)
+                    {
+                        lemmingCount++;
+                    }
+                }
+
+                return lemmingCount;
             }
         }
 
@@ -519,13 +594,11 @@
                 {
                     int haliteAvailableLocally = ship.Halite + originHaliteMap[ship.OriginPosition];
                     int additionalHaliteNeeded = Math.Max(GameConstants.DropoffCost - haliteAvailableLocally, 0);
+
+                    ProcessShipOrder(ship, ship.OriginPosition);
                     if (myPlayer.Halite >= additionalHaliteNeeded)
                     {
                         myPlayer.BuildDropoff(ship);
-                    }
-                    else
-                    {
-                        ProcessShipOrder(ship, ship.OriginPosition, false);
                     }
 
                     return;
@@ -552,7 +625,7 @@
         private bool GoAwayFromOpponentDropoffIfNeeded(MyShip ship)
         {
             Debug.Assert(!ship.HasActionAssigned);
-            if (!permanentForbiddenCellsMap[ship.OriginPosition])
+            if (!opponentDropoffForbiddenCellsMap[ship.OriginPosition])
             {
                 return false;
             }
@@ -610,7 +683,7 @@
                         {
                             ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
                             var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
-                            logger.LogInfo("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", adjusted halite = " + neighbourhoodInfo.BestValue + ").");
+                            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", adjusted halite = " + neighbourhoodInfo.BestValue + ").");
                             SetShipRole(ship, newRole);
                             return;
                         }
@@ -801,7 +874,7 @@
         {
             Debug.Assert(!ship.HasActionAssigned);
 
-            if (permanentForbiddenCellsMap[ship.OriginPosition])
+            if (opponentDropoffForbiddenCellsMap[ship.OriginPosition])
             {
                 int originOpponentDropoffDistance = allOpponentDropoffDistanceMap[ship.OriginPosition];
                 foreach (var neighbour in mapBooster.GetNeighbours(ship.OriginPosition))
@@ -1067,7 +1140,8 @@
 
             logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + ", with role " + ship.Role + ", got ordered to " + position + " (isBlocked = " + isBlocked + ", destination = " + ship.Destination + ").");
 
-            if (position != ship.OriginPosition)
+            if (position != ship.OriginPosition
+                && !(ship.Role == ShipRole.Lemming && ship.DistanceFromDropoff == 1 && myPlayer.DistanceFromDropoffMap[position] == 0))
             {
                 var blocker = myPlayer.GetFromMyShipMap(position);
                 if (blocker != null)
@@ -1152,13 +1226,48 @@
                     Debug.Assert(shipAtOrigin != null && shipAtOrigin.HasActionAssigned && shipAtOrigin.OriginPosition == position, "ship=" + ship + ", shipAtOrigin=" + shipAtOrigin);
                 }
 
-                myPlayer.ShipMap[ship.Position] = ship;
-                myPlayer.MyShipMap[ship.Position] = ship;
+                // Dropoff distance is already updated by now.
+                bool isSunk = false;
+                if (ship.Role == ShipRole.Lemming && ship.DistanceFromDropoff == 0)
+                {
+                    var victim = myPlayer.MyShipMap[ship.Position];
+                    if (victim != null)
+                    {
+                        isSunk = true;
+                        SinkShip(victim);
+                    }
+                    else
+                    {
+                        isSunk = (allOpponentShipMap[position] != null);
+                    }
+
+                    if (isSunk)
+                    {
+                        SinkShip(ship);
+                    }
+                }
+
+                if (!isSunk)
+                {
+                    myPlayer.ShipMap[ship.Position] = ship;
+                    myPlayer.MyShipMap[ship.Position] = ship;
+                }
             }
             else
             {
                 AdjustHaliteForExtraction(ship);
             }
+        }
+
+        private void SinkShip(MyShip ship)
+        {
+            myPlayer.Shipwrecks.Add(ship);
+            myPlayer.ShipMap[ship.Position] = null;
+            myPlayer.Ships.Remove(ship);
+            myPlayer.MyShipMap[ship.Position] = null;
+            myPlayer.MyShips.Remove(ship as MyShip);
+            myPlayer.SinkingShips.Add(ship);
+            HandleShipwreck(ship);
         }
 
         private void Initialize()
@@ -1201,7 +1310,7 @@
 
             mapBooster = new MapBooster(mapWidth, mapHeight, tuningSettings);
             forbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
-            permanentForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
+            opponentDropoffForbiddenCellsMap = new BitMapLayer(mapWidth, mapHeight);
             shipTurnOrderComparer = new InversePriorityShipTurnOrderComparer(originHaliteMap);
             allOpponentShipMap = new DataMapLayer<OpponentShip>(mapWidth, mapHeight);
             turnPredictionMap = new DataMapLayer<List<MyShip>>(mapWidth, mapHeight);
@@ -1259,6 +1368,17 @@
                 TuningSettings = tuningSettings
             };
 
+            lemmingDisease = new LemmingDisease()
+            {
+                Logger = logger,
+                MyPlayer = myPlayer,
+                SetShipRole = SetShipRole,
+                TotalTurns = totalTurnCount,
+                TuningSettings = tuningSettings
+            };
+
+            lemmingDisease.Initialize();
+
             haliteEngineInterface.Ready(Name);
         }
 
@@ -1282,6 +1402,7 @@
             originDetourReturnMap = GetReturnMap(MapSetKind.Detour);
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
+            doubleDropoffDistanceMap = null;
 
             /*PaintMap(expansionMap.CoarseHaliteMaps[0], "chm1" + TurnNumber.ToString().PadLeft(3, '0'));
             PaintMap(expansionMap.CoarseHaliteMaps[1], "chm2" + TurnNumber.ToString().PadLeft(3, '0'));
@@ -1345,24 +1466,29 @@
 
             foreach (MyShip shipwreck in myPlayer.Shipwrecks)
             {
-                var myShipWreck = shipwreck as MyShip;
-                if (myShipWreck.BlockedTurnCount > 0)
-                {
-                    blockedShipCount--;
-                }
+                HandleShipwreck(shipwreck);
+            }
+        }
 
-                ClearDesiredNextPosition(myShipWreck);
+        private void HandleShipwreck(MyShip shipwreck)
+        {
+            var myShipWreck = shipwreck as MyShip;
+            if (myShipWreck.BlockedTurnCount > 0)
+            {
+                blockedShipCount--;
+            }
 
-                if (myShipWreck.IsEarlyGameShip)
-                {
-                    earlyGameShipCount--;
-                }
+            ClearDesiredNextPosition(myShipWreck);
 
-                if (shipwreck.Role == ShipRole.Builder)
-                {
-                    bool removed = builderList.Remove(shipwreck);
-                    Debug.Assert(removed);
-                }
+            if (myShipWreck.IsEarlyGameShip)
+            {
+                earlyGameShipCount--;
+            }
+
+            if (shipwreck.Role == ShipRole.Builder)
+            {
+                bool removed = builderList.Remove(shipwreck);
+                Debug.Assert(removed);
             }
         }
 
@@ -1404,6 +1530,17 @@
                     {
                         return true;
                     }
+                }
+            }
+
+            if (ship.DistanceFromDropoff >= lemmingDisease.FrontDistance - 1)
+            {
+                var lemmingMap = GetLemmingMap();
+                double originPathValue = lemmingMap[ship.OriginPosition];
+                double candidatePathValue = lemmingMap[position];
+                if (candidatePathValue > originPathValue)
+                {
+                    return true;
                 }
             }
 
@@ -1596,7 +1733,7 @@
             switch (kind)
             {
                 case MapSetKind.Default:
-                    return GetReturnMap(ref dangerousReturnMap, permanentForbiddenCellsMap);
+                    return GetReturnMap(ref dangerousReturnMap, opponentDropoffForbiddenCellsMap);
                 case MapSetKind.Detour:
                     return GetReturnMap(ref dangerousDetourReturnMap, originForbiddenCellsMap);
                 default:
@@ -1636,7 +1773,7 @@
             switch (kind)
             {
                 case MapSetKind.Default:
-                    return GetAdjustedHaliteMap(ref dangerousAdjustedHaliteMap, GetReturnMap(kind), permanentForbiddenCellsMap);
+                    return GetAdjustedHaliteMap(ref dangerousAdjustedHaliteMap, GetReturnMap(kind), opponentDropoffForbiddenCellsMap);
                 case MapSetKind.Detour:
                     return GetAdjustedHaliteMap(ref dangerousDetourAdjustedHaliteMap, GetReturnMap(kind), originForbiddenCellsMap);
                 default:
@@ -1677,11 +1814,11 @@
             switch (kind)
             {
                 case MapSetKind.Default:
-                    return GetOutboundMap(ref dangerousOutboundMap, false, GetAdjustedHaliteMap(kind), permanentForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
+                    return GetOutboundMap(ref dangerousOutboundMap, false, GetAdjustedHaliteMap(kind), opponentDropoffForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
                 case MapSetKind.Detour:
                     return GetOutboundMap(ref dangerousDetourOutboundMap, false, GetAdjustedHaliteMap(kind), originForbiddenCellsMap, GetReturnMap(MapSetKind.Detour));
                 case MapSetKind.EarlyGame:
-                    return GetOutboundMap(ref dangerousEarlyGameOutboundMap, true, GetAdjustedHaliteMap(MapSetKind.Default), permanentForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
+                    return GetOutboundMap(ref dangerousEarlyGameOutboundMap, true, GetAdjustedHaliteMap(MapSetKind.Default), opponentDropoffForbiddenCellsMap, GetReturnMap(MapSetKind.Default));
                 default:
                     throw new ArgumentException();
             }
@@ -1709,6 +1846,21 @@
             }
 
             return mapStorage;
+        }
+
+        private DataMapLayer<double> GetLemmingMap()
+        {
+            if (doubleDropoffDistanceMap == null)
+            {
+                var distanceMap = myPlayer.DistanceFromDropoffMap;
+                doubleDropoffDistanceMap = new DataMapLayer<double>(mapWidth, mapHeight);
+                foreach (var position in distanceMap.AllPositions)
+                {
+                    doubleDropoffDistanceMap[position] = distanceMap[position];
+                }
+            }
+
+            return doubleDropoffDistanceMap;
         }
 
         private void UpdateHaliteMap(TurnMessage turnMessage)
@@ -1947,21 +2099,34 @@
         {
             forbiddenCellsMap.Clear();
 
-            var noGoDisc = new Position[permanentForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
-            var myDistanceFromEstablishedDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
-            Player.UpdateDropoffDistances(myPlayer.Dropoffs, myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
+            var dropoffZoneDisc = new Position[opponentDropoffForbiddenCellsMap.GetDiscArea(tuningSettings.MapOpponentDropoffNoGoZoneRadius)];
             foreach (var player in opponentPlayers)
             {
                 foreach (var dropoff in player.Dropoffs)
                 {
-                    permanentForbiddenCellsMap.GetDiscCells(dropoff.Position, tuningSettings.MapOpponentDropoffNoGoZoneRadius, noGoDisc);
-                    foreach (var position in noGoDisc)
+                    opponentDropoffForbiddenCellsMap.GetDiscCells(dropoff.Position, tuningSettings.MapOpponentDropoffNoGoZoneRadius, dropoffZoneDisc);
+                    foreach (var position in dropoffZoneDisc)
                     {
                         forbiddenCellsMap[position] = true;
-                        permanentForbiddenCellsMap[position] = true;
+                        opponentDropoffForbiddenCellsMap[position] = true;
                     }
                 }
+            }
 
+            foreach (var dropoff in myPlayer.Dropoffs)
+            {
+                opponentDropoffForbiddenCellsMap.GetDiscCells(dropoff.Position, tuningSettings.MapOpponentDropoffNoGoZoneRadius, dropoffZoneDisc);
+                foreach (var position in dropoffZoneDisc)
+                {
+                    forbiddenCellsMap[position] = false;
+                    opponentDropoffForbiddenCellsMap[position] = false;
+                }
+            }
+
+            var myDistanceFromEstablishedDropoffMap = new DataMapLayer<int>(mapWidth, mapHeight);
+            Player.UpdateDropoffDistances(myPlayer.Dropoffs, myDistanceFromEstablishedDropoffMap, tuningSettings.MapOpponentShipInvisibilityMinDropoffAge);
+            foreach (var player in opponentPlayers)
+            {
                 foreach (var ship in player.OpponentShips)
                 {
                     var shipPosition = ship.Position;
@@ -1982,14 +2147,6 @@
             }
 
             originForbiddenCellsMap = new BitMapLayer(forbiddenCellsMap);
-
-            /*var lala = new DataMapLayer<int>(originForbiddenCellsMap.Width, originForbiddenCellsMap.Height);
-            foreach (var position in originForbiddenCellsMap.AllPositions)
-            {
-                lala[position] = originForbiddenCellsMap[position] ? 100 : 0;
-            }
-
-            PaintMap(lala, "originForbiddenCellsMap" + TurnNumber.ToString().PadLeft(3, '0'));*/
         }
 
         private OpponentShip GetFromAllOpponentShipMap(Position position)
@@ -2050,6 +2207,17 @@
         private void PrintSvg(string svg, string name)
         {
             File.WriteAllText(name + "-" + myPlayer.Id + ".svg", svg);
+        }
+
+        private void OnTimedOut(object state)
+        {
+            var allShips = myPlayer.MyShips.ToArray();
+            int assignedShipCount = allShips.Count(ship => ship.HasActionAssigned);
+            string shipCountMessage = "Total ship count = " + allShips.Length + ", assigned count = " + assignedShipCount + Environment.NewLine;
+            string currentShipMessage = "Current ship: " + shipCurrentlyBeingAssignedAnOrder + Environment.NewLine;
+            string allShipsMessage = "All ships: " + string.Join(Environment.NewLine, allShips.Select(ship => ship.ToString())) + Environment.NewLine;
+            string debugOutput = shipCountMessage + currentShipMessage + allShipsMessage;
+            Console.WriteLine(debugOutput);
         }
 
         private class NeighbourhoodInfo
