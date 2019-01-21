@@ -40,8 +40,6 @@
 
         public void BuildDropoff(MyShip builder)
         {
-            Debug.Assert(Halite >= GameConstants.DropoffCost && !builder.HasActionAssigned);
-
             Halite -= GameConstants.DropoffCost;
             var dropoff = new Dropoff(this)
             {

@@ -28,26 +28,22 @@
             var oneShipResult = RunSimulation("s");
             if (oneShipResult.IsBetterThan(normalResult))
             {
-                var fourShipResult = RunSimulation("ssss");
-                if (fourShipResult.IsBetterThan(oneShipResult))
+                BestDropoffArea = FindBestDropoffLocation();
+                if (BestDropoffArea != null)
                 {
-                    BestDropoffArea = FindBestDropoffLocation();
-                    if (BestDropoffArea != null)
-                    {
-                        var dropoffThenFiveShipsResult = RunSimulation("dsssss");
-                        var fiveShipsThenDropoffResult = RunSimulation("sssssd");
+                    var multipleShipResult = RunSimulation("ssss");
+                    var dropoffResult = RunSimulation("d");
 
-                        if (dropoffThenFiveShipsResult.IsBetterThan(fourShipResult)
-                            && dropoffThenFiveShipsResult.IsBetterThan(fiveShipsThenDropoffResult))
+                    if (dropoffResult.IsBetterThan(oneShipResult)
+                        && dropoffResult.IsBetterThan(multipleShipResult))
+                    {
+                        DecisionSimulationResult = dropoffResult;
+                        return new Decision()
                         {
-                            DecisionSimulationResult = dropoffThenFiveShipsResult;
-                            return new Decision()
-                            {
-                                BuildDropoff = true,
-                                DropoffAreaInfo = BestDropoffArea,
-                                BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost)
-                            };
-                        }
+                            BuildDropoff = true,
+                            DropoffAreaInfo = BestDropoffArea,
+                            BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost)
+                        };
                     }
                 }
             }
@@ -82,7 +78,9 @@
                         bool builderFound = FindClosestShip(BestDropoffArea.CenterPosition, out var builder, out var builderDistance);
                         Debug.Assert(builderFound);
                         int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
-                        var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(builderDispatchTurn, dropoffTurnNumber - builderDispatchTurn, BestDropoffArea.CenterPosition);
+                        int baseStartupDelay = (int)(TuningSettings.MacroEngineDropoffStartupDelayMaxDistanceMultiplier * Simulator.MaxDistance);
+                        int startupDelay = (dropoffTurnNumber - builderDispatchTurn) + baseStartupDelay;
+                        var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(builderDispatchTurn, startupDelay, BestDropoffArea.CenterPosition);
                         eventList.Add(dropoffEventPair.Item1);
                         eventList.Add(dropoffEventPair.Item2);
                         break;
@@ -92,7 +90,7 @@
             }
 
             var result = Simulator.RunSimulation(TurnNumber, eventList.ToArray());
-            Logger.LogInfo("RunSimulation(" + events + "): " + result);
+            Logger.LogDebug("RunSimulation(" + events + "): " + result);
             return result;
         }
 

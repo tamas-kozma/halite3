@@ -10,11 +10,13 @@
         public TuningSettings TuningSettings { get; set; }
         public AdjustedHaliteMap AdjustedHaliteMap { get; set; }
         public MyPlayer MyPlayer { get; set; }
+        public OpponentPlayer[] Opponents;
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
         public BitMapLayer ForbiddenCellsMap { get; set; }
         public bool IsEarlyGameMap { get; set; }
         public ReturnMap ReturnMap { get; set; }
+        public DataMapLayer<int> AllOpponentDropoffDistanceMap;
 
         public static double[][] EstimatedHarvestTimes;
 
@@ -33,10 +35,10 @@
         {
             var disc = new Position[HarvestTimeMap.GetDiscArea(1)];
             HarvestTimeMap.GetDiscCells(center, 1, disc);
-            double bestTime = -1d;
+            double bestTime = double.MaxValue;
             foreach (var position in disc)
             {
-                if (!ForbiddenCellsMap[position])
+                if (ForbiddenCellsMap[position])
                 {
                     continue;
                 }
@@ -62,7 +64,7 @@
                 }
 
                 int fillCategory = adjustedInitialFill / InitialFillStepSize;
-                if (fillCategory > EstimatedHarvestTimes.Length)
+                if (fillCategory >= EstimatedHarvestTimes.Length)
                 {
                     return 1d;
                 }
@@ -101,13 +103,18 @@
             int estimatedMaxQueueSize = (int)(harvestTimeMap.CellCount * Math.Log(harvestTimeMap.CellCount));
             var queue = new DoublePriorityQueue<PositionWithStepTime>(estimatedMaxQueueSize);
             var returnDistanceMap = ReturnMap.CellData;
-            int forbiddenCellCount = 0;
+            int skippedForbiddenCellCount = 0;
+            int opponentDropoffNoGoZoneRadius = TuningSettings.MapOpponentDropoffNoGoZoneRadius;
             foreach (var position in harvestTimeMap.AllPositions)
             {
                 double baseHarvestTime = harvestTimeMap[position];
                 if (forbiddenCellsMap[position])
                 {
-                    forbiddenCellCount++;
+                    if (AllOpponentDropoffDistanceMap[position] > opponentDropoffNoGoZoneRadius)
+                    {
+                        skippedForbiddenCellCount++;
+                    }
+
                     continue;
                 }
 
@@ -133,13 +140,12 @@
             }
 
             var mapBooster = MapBooster;
-            var distanceFromDropoffMap = MyPlayer.DistanceFromDropoffMap;
+            var distanceFromMyDropoffMap = MyPlayer.DistanceFromDropoffMap;
             int cellCount = outboundPaths.CellCount;
-            int maxAssignedCellCount = cellCount - forbiddenCellCount;
+            int maxAssignedCellCount = cellCount - skippedForbiddenCellCount;
             int cellsAssigned = 0;
 
-            // Plus one because I check it only on the source cell.
-            int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius + 1;
+            int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius;
             while (queue.Count > 0)
             {
                 double newTime = queue.PeekPriority();
@@ -151,8 +157,10 @@
                     continue;
                 }
 
-                int distanceFromDropoff = distanceFromDropoffMap[position];
-                bool isCloseToDropoff = (distanceFromDropoff < outboundMapDropoffAvoidanceRadius);
+                int distanceFromMyDropoff = distanceFromMyDropoffMap[position];
+                bool isCloseToMyDropoff = (distanceFromMyDropoff <= outboundMapDropoffAvoidanceRadius);
+                int distanceFromOpponentDropoff = AllOpponentDropoffDistanceMap[position];
+                bool isCloseToOpponentDropoff = (distanceFromOpponentDropoff < opponentDropoffNoGoZoneRadius);
 
                 outboundPaths[position] = newTime;
                 cellsAssigned++;
@@ -168,15 +176,29 @@
                 foreach (var neighbour in neighbourArray)
                 {
                     double neighbourTime = outboundPaths[neighbour];
-                    if (nextTime >= neighbourTime || forbiddenCellsMap[neighbour])
+                    if (nextTime >= neighbourTime)
                     {
                         continue;
                     }
 
-                    if (isCloseToDropoff)
+                    int neighbourDistanceFromOpponentDropoff = AllOpponentDropoffDistanceMap[neighbour];
+                    if (forbiddenCellsMap[neighbour]
+                        && neighbourDistanceFromOpponentDropoff > opponentDropoffNoGoZoneRadius)
                     {
-                        int neighbourDistanceFromDropoff = distanceFromDropoffMap[neighbour];
-                        if (neighbourDistanceFromDropoff > distanceFromDropoff)
+                        continue;
+                    }
+
+                    if (isCloseToOpponentDropoff)
+                    {
+                        if (neighbourDistanceFromOpponentDropoff > distanceFromOpponentDropoff)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (isCloseToMyDropoff)
+                    {
+                        int neighbourDistanceFromMyDropoff = distanceFromMyDropoffMap[neighbour];
+                        if (neighbourDistanceFromMyDropoff > distanceFromMyDropoff)
                         {
                             continue;
                         }
@@ -189,6 +211,14 @@
             foreach (var dropoff in MyPlayer.Dropoffs)
             {
                 outboundPaths[dropoff.Position] = double.MaxValue;
+            }
+
+            foreach (var player in Opponents)
+            {
+                foreach (var dropoff in player.Dropoffs)
+                {
+                    outboundPaths[dropoff.Position] = double.MaxValue;
+                }
             }
         }
 

@@ -62,6 +62,7 @@
         private List<MyShip> builderList;
         private GameSimulator simulator;
         private MacroEngine macroEngine;
+        private DataMapLayer<int> allOpponentDropoffDistanceMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -103,7 +104,7 @@
                 DoMacroTasks();
 
                 var turnTime = DateTime.Now - turnStartTime;
-                logger.LogDebug("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
+                logger.LogInfo("Turn " + turnMessage.TurnNumber + " took " + turnTime + " to compute.");
 
                 var commands = new CommandList();
                 commands.PopulateFromPlayer(myPlayer);
@@ -267,7 +268,7 @@
 
                 if (bestShip.Role == ShipRole.Harvester)
                 {
-                    double jobTime = currentOutboundMap.GetEstimatedJobTimeInNeighbourhood(bestShip.Position, bestShip.Halite, bestShip.IsEarlyGameShip);
+                    double jobTime = currentOutboundMap.GetEstimatedJobTimeInNeighbourhood(bestShip.Position, 0, bestShip.IsEarlyGameShip);
                     if (jobTime > 0)
                     {
                         meanHarvesterJobTime = (meanHarvesterJobTime * harvesterJobsAssignedCount + jobTime) / (harvesterJobsAssignedCount + 1);
@@ -487,6 +488,12 @@
         private void TryAssignOrderToBuilder(MyShip ship)
         {
             Debug.Assert(expansionMap.BestDropoffAreaCandidates.Count > 0);
+
+            if (GoAwayFromOpponentDropoffIfNeeded(ship))
+            {
+                return;
+            }
+
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             if (neighbourhoodInfo.BestValue == 0)
             {
@@ -533,13 +540,35 @@
 
         private void TryAssignOrderToFugitiveShip(MyShip ship)
         {
+            if (GoAwayFromOpponentDropoffIfNeeded(ship))
+            {
+                return;
+            }
+
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
+        }
+
+        private bool GoAwayFromOpponentDropoffIfNeeded(MyShip ship)
+        {
+            Debug.Assert(!ship.HasActionAssigned);
+            if (!permanentForbiddenCellsMap[ship.OriginPosition])
+            {
+                return false;
+            }
+
+            AssignOrderToBlockedShip(ship, null);
+            return true;
         }
 
         private void TryAssignOrderToInboundShip(MyShip ship)
         {
             Debug.Assert(myPlayer.DistanceFromDropoffMap[ship.OriginPosition] != 0);
+
+            if (GoAwayFromOpponentDropoffIfNeeded(ship))
+            {
+                return;
+            }
 
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             if (neighbourhoodInfo.BestAllowedPosition == ship.OriginPosition)
@@ -570,8 +599,7 @@
             // Handles the case when there's too little halite left in the neighbourhood.
             if (!ship.HasFoundTooLittleHaliteToHarvestThisTurn)
             {
-                var outboundMap = GetOutboundMap(MapSetKind.Default);
-                double jobTime = outboundMap.GetEstimatedJobTimeInNeighbourhood(ship.OriginPosition, ship.Halite, ship.IsEarlyGameShip);
+                double jobTime = originOutboundMap.GetEstimatedJobTimeInNeighbourhood(ship.OriginPosition, ship.Halite, ship.IsEarlyGameShip);
                 if (jobTime > 0)
                 {
                     if (meanHarvesterJobTime != 0)
@@ -582,7 +610,7 @@
                         {
                             ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
                             var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
-                            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", halite = " + neighbourhoodInfo.BestValue + ", adjusted halite = " + outboundMap.AdjustedHaliteMap.Values[neighbourhoodInfo.BestPosition] + ").");
+                            logger.LogInfo("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", adjusted halite = " + neighbourhoodInfo.BestValue + ").");
                             SetShipRole(ship, newRole);
                             return;
                         }
@@ -705,6 +733,11 @@
 
         private void TryAssignOrderToOutboundShip(MyShip ship)
         {
+            if (GoAwayFromOpponentDropoffIfNeeded(ship))
+            {
+                return;
+            }
+
             var neighbourhoodInfo = DiscoverNeighbourhood(ship,
                 (candidate, bestSoFar) =>
                 {
@@ -767,7 +800,35 @@
         private void AssignOrderToBlockedShip(MyShip ship, NeighbourhoodInfo neighbourhoodInfo)
         {
             Debug.Assert(!ship.HasActionAssigned);
-            Debug.Assert(ship.DetourTurnCount > 0 || neighbourhoodInfo.BestPosition != ship.OriginPosition);
+
+            if (permanentForbiddenCellsMap[ship.OriginPosition])
+            {
+                int originOpponentDropoffDistance = allOpponentDropoffDistanceMap[ship.OriginPosition];
+                foreach (var neighbour in mapBooster.GetNeighbours(ship.OriginPosition))
+                {
+                    int neighbourOpponentDropoffDistance = allOpponentDropoffDistanceMap[neighbour];
+                    if (neighbourOpponentDropoffDistance <= originOpponentDropoffDistance)
+                    {
+                        continue;
+                    }
+
+                    if (myPlayer.MyShipMap[neighbour] != null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var opponentShip in opponentPlayers.SelectMany(player => player.OpponentShips))
+                    {
+                        if (opponentShip.PossibleNextPositions.Contains(neighbour))
+                        {
+                            continue;
+                        }
+                    }
+
+                    ProcessShipOrder(ship, neighbour, false);
+                    return;
+                }
+            }
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
             bool isBlockedByOpponent = (originForbiddenCellsMap[desiredNeighbour] && myPlayer.GetFromMyShipMap(desiredNeighbour) == null);
@@ -1228,6 +1289,12 @@
             PaintMap(expansionMap.CoarseShipCountMaps[1], "csc2" + TurnNumber.ToString().PadLeft(3, '0'));*/
             //PaintMap(expansionMap.Paths, "expansionMap" + TurnNumber.ToString().PadLeft(3, '0'));
 
+            /*PaintMap(allOpponentDropoffDistanceMap, TurnNumber.ToString().PadLeft(3, '0') + "allOpponentDropoffDistanceMap");
+            PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
+            PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnMap");
+            PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundMap");
+            PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "OutboundHarvestTimeMap");*/
+
             /*PaintMap(haliteMap, TurnNumber.ToString().PadLeft(3, '0') + "HaliteMap");
             PaintMap(originAdjustedHaliteMap.Values, TurnNumber.ToString().PadLeft(3, '0') + "AdjustedHaliteMap");
             PaintMap(originReturnMap.PathCosts, TurnNumber.ToString().PadLeft(3, '0') + "ReturnPathCosts");
@@ -1258,6 +1325,21 @@
                 {
                     Debug.Assert(allOpponentShipMap[ship.Position] == null);
                     allOpponentShipMap[ship.Position] = ship;
+                }
+            }
+
+            allOpponentDropoffDistanceMap = new DataMapLayer<int>(opponentPlayers[0].DistanceFromDropoffMap);
+            for (int i = 1; i < opponentPlayers.Length; i++)
+            {
+                var opponentDropoffDistanceMap = opponentPlayers[i].DistanceFromDropoffMap;
+                foreach (var position in allOpponentDropoffDistanceMap.AllPositions)
+                {
+                    int priorDistance = allOpponentDropoffDistanceMap[position];
+                    int opponentDistance = opponentDropoffDistanceMap[position];
+                    if (opponentDistance < priorDistance)
+                    {
+                        allOpponentDropoffDistanceMap[position] = opponentDistance;
+                    }
                 }
             }
 
@@ -1533,7 +1615,9 @@
                     Logger = logger,
                     MyPlayer = myPlayer,
                     MapBooster = mapBooster,
-                    ForbiddenCellsMap = forbiddenCellsMapToUse
+                    ForbiddenCellsMap = forbiddenCellsMapToUse,
+                    AllOpponentDropoffDistanceMap = allOpponentDropoffDistanceMap,
+                    Opponents = opponentPlayers
                 };
 
                 mapStorage.Calculate();
@@ -1616,7 +1700,9 @@
                     MapBooster = mapBooster,
                     ForbiddenCellsMap = forbiddenCellsMapToUse,
                     IsEarlyGameMap = isEarlyGameMap,
-                    ReturnMap = returnMapToUse
+                    ReturnMap = returnMapToUse,
+                    AllOpponentDropoffDistanceMap = allOpponentDropoffDistanceMap,
+                    Opponents = opponentPlayers
                 };
 
                 mapStorage.Calculate();

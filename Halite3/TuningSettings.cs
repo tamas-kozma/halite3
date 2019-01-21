@@ -4,9 +4,9 @@ namespace Halite3
 {
     public sealed class TuningSettings
     {
-        public int MapOpponentShipInvisibilityRadius { get; set; } = 3;
+        public int MapOpponentShipInvisibilityRadius { get; set; } = 2;
         public int MapOpponentDropoffNoGoZoneRadius { get; set; } = 3;
-        public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 40;
+        public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 25;
 
         public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 150;
         public int OpponentShipCertainlyInboundMinHalite { get; set; } = 990;
@@ -31,7 +31,7 @@ namespace Halite3
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
-        public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 1.5d;
+        public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 2d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.7d;
 
         public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;
@@ -49,6 +49,7 @@ namespace Halite3
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
 
         public double SimulatorHarvestRatioMultiplier { get; set; } = 1d;
+        public double MacroEngineDropoffStartupDelayMaxDistanceMultiplier { get; set; } = 0.16d;
 
         private int earlyGameShipMinReturnedHalite = -1;
 

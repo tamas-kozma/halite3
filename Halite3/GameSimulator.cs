@@ -98,7 +98,7 @@
                     while (eventQueue.Count > 0 && eventQueue.PeekPriority() == turn)
                     {
                         var playerEvent = eventQueue.Dequeue();
-                        Logger.LogDebug("Applying " + playerEvent);
+                        //Logger.LogDebug("Applying " + playerEvent);
                         var playerInfo = PlayerInfoMap[playerEvent.Player.Id];
                         playerInfo.HaliteAdjustments += playerEvent.HaliteChange;
                         playerInfo.ShipCount += playerEvent.ShipCountChange;
@@ -203,7 +203,7 @@
             SIMULATION_DONE:
             foreach (var playerEvent in eventQueue)
             {
-                Logger.LogDebug("Applying only halite change from late " + playerEvent);
+                //Logger.LogDebug("Applying only halite change from late " + playerEvent);
                 PlayerInfoMap[playerEvent.Player.Id].HaliteAdjustments += playerEvent.HaliteChange;
             }
 

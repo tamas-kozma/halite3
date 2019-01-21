@@ -13,6 +13,8 @@
         public Logger Logger { get; set; }
         public MapBooster MapBooster { get; set; }
         public BitMapLayer ForbiddenCellsMap { get; set; }
+        public DataMapLayer<int> AllOpponentDropoffDistanceMap;
+        public OpponentPlayer[] Opponents;
 
         public DataMapLayer<double> PathCosts { get; private set; }
         public DataMapLayer<ReturnMapCellData> CellData { get; private set; }
