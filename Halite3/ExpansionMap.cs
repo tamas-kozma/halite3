@@ -18,84 +18,42 @@
 
         public Position[] AllDropoffPositions;
         public DataMapLayer<int>[] CoarseHaliteMaps;
-        public DataMapLayer<int>[] CoarseShipCountMaps;
+        public BitMapLayer[] CoarseShipVisitsMaps;
         public DataMapLayer<double> Paths;
-        public bool SuitableLocationExists;
-        public Position BestDropoffPosition;
-        public List<Position> BestDropoffAreaCandidateCenters;
+        public List<DropoffAreaInfo> BestDropoffAreaCandidates;
 
-        public void Calculate()
+        public void Initialize()
         {
-            CalculateCoarseHaliteMaps();
-            CalculateCoarseShipCountMaps();
-            CalculatePaths();
-        }
+            BestDropoffAreaCandidates = new List<DropoffAreaInfo>();
 
-        public void CalculatePaths()
-        {
-            AllDropoffPositions = MyPlayer.Dropoffs
-                .Concat(Opponents.SelectMany(opponent => opponent.Dropoffs))
-                .Select(dropoff => dropoff.Position)
-                .ToArray();
-
-            BestDropoffAreaCandidateCenters = new List<Position>();
-            int maxCoarseHalite = int.MinValue;
-            var maxHaliteCoarsePosition = default(Position);
-            int maxCoarseHaliteIndex = 0;
-            int maxBaseOffset = 0;
-            Position maxDropoffAreaCenterPosition = default(Position);
-            var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
+            int mapWidth = MapBooster.MapWidth;
+            int mapHeight = MapBooster.MapHeight;
+            Debug.Assert(mapWidth % CoarseCellSize == 0 && mapHeight % CoarseCellSize == 0);
+            int coarseMapWidth = mapWidth / CoarseCellSize;
+            int coarseMapHeight = mapHeight / CoarseCellSize;
+            CoarseShipVisitsMaps = new BitMapLayer[2];
             for (int i = 0; i < 2; i++)
             {
-                int baseOffset = i * (CoarseCellSize / 2);
-                var coarseHaliteMap = CoarseHaliteMaps[i];
-                var coarseShipCountMap = CoarseShipCountMaps[i];
-                foreach (var coarsePosition in coarseHaliteMap.AllPositions)
-                {
-                    int halite = coarseHaliteMap[coarsePosition];
-                    if (halite <= maxCoarseHalite)
-                    {
-                        continue;
-                    }
-
-                    int sumShipCount = 0;
-                    coarseHaliteMap.GetDiscCells(coarsePosition, 1, coarseDisc);
-                    foreach (var coarseDiscPosition in coarseDisc)
-                    {
-                        sumShipCount += coarseShipCountMap[coarseDiscPosition];
-                    }
-
-                    if (sumShipCount == 0)
-                    {
-                        continue;
-                    }
-
-                    int centerRow = HaliteMap.NormalizeNonNegativeRow((coarsePosition.Row * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
-                    int centerColumn = HaliteMap.NormalizeNonNegativeColumn((coarsePosition.Column * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
-                    var center = new Position(centerRow, centerColumn);
-                    if (IsTooCloseToDropoff(center))
-                    {
-                        continue;
-                    }
-
-                    maxCoarseHalite = halite;
-                    maxHaliteCoarsePosition = coarsePosition;
-                    maxCoarseHaliteIndex = i;
-                    maxBaseOffset = baseOffset;
-                    maxDropoffAreaCenterPosition = center;
-                }
+                CoarseShipVisitsMaps[i] = new BitMapLayer(coarseMapWidth, coarseMapHeight);
             }
+        }
 
+        public void FindBestCandidates(BitMapLayer forbiddenCellsMap)
+        {
+            ForbiddenCellsMap = forbiddenCellsMap;
+            BestDropoffAreaCandidates.Clear();
+
+            CalculateCoarseHaliteMaps();
+            UpdateCoarseShipVisitsMaps();
+            CalculateCandidates();
+        }
+
+        public void CalculatePaths(DropoffAreaInfo targetArea)
+        {
             Paths = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
-            SuitableLocationExists = (maxCoarseHalite > 0);
-            if (!SuitableLocationExists)
-            {
-                return;
-            }
-
             var queue = new DoublePriorityQueue<Position>(HaliteMap.CellCount);
-            int rowOffset = maxBaseOffset + maxHaliteCoarsePosition.Row * CoarseCellSize;
-            int columnOffset = maxBaseOffset + maxHaliteCoarsePosition.Column * CoarseCellSize;
+            int rowOffset = targetArea.BaseOffset + targetArea.CoarsePosition.Row * CoarseCellSize;
+            int columnOffset = targetArea.BaseOffset + targetArea.CoarsePosition.Column * CoarseCellSize;
             for (int cellRow = 0; cellRow < CoarseCellSize; cellRow++)
             {
                 int row = HaliteMap.NormalizeNonNegativeRow(rowOffset + cellRow);
@@ -113,13 +71,7 @@
                 }
             }
 
-            SuitableLocationExists = (queue.Count > 0);
-            if (SuitableLocationExists)
-            {
-                BestDropoffAreaCandidateCenters.Add(maxDropoffAreaCenterPosition);
-                BestDropoffPosition = queue.Peek();
-            }
-
+            Debug.Assert(queue.Count > 0);
             while (queue.Count > 0)
             {
                 double halite = -1 * queue.PeekPriority();
@@ -149,6 +101,84 @@
             }
         }
 
+        public sealed class DropoffAreaInfo
+        {
+            public Position CenterPosition;
+            public Position CoarsePosition;
+            internal int Index;
+            internal int BaseOffset;
+        }
+
+        private void CalculateCandidates()
+        {
+            AllDropoffPositions = MyPlayer.Dropoffs
+               .Concat(Opponents.SelectMany(opponent => opponent.Dropoffs))
+               .Select(dropoff => dropoff.Position)
+               .ToArray();
+
+            int maxCoarseHalite = int.MinValue;
+            var maxHaliteCoarsePosition = default(Position);
+            int maxCoarseHaliteIndex = 0;
+            int maxBaseOffset = 0;
+            Position maxDropoffAreaCenterPosition = default(Position);
+            var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
+            for (int i = 0; i < 2; i++)
+            {
+                int baseOffset = i * (CoarseCellSize / 2);
+                var coarseHaliteMap = CoarseHaliteMaps[i];
+                var coarseShipCountMap = CoarseShipVisitsMaps[i];
+                foreach (var coarsePosition in coarseHaliteMap.AllPositions)
+                {
+                    int halite = coarseHaliteMap[coarsePosition];
+                    if (halite <= maxCoarseHalite)
+                    {
+                        continue;
+                    }
+
+                    bool hasShipBeenClose = false;
+                    coarseHaliteMap.GetDiscCells(coarsePosition, 1, coarseDisc);
+                    foreach (var coarseDiscPosition in coarseDisc)
+                    {
+                        hasShipBeenClose |= coarseShipCountMap[coarseDiscPosition];
+                    }
+
+                    if (!hasShipBeenClose)
+                    {
+                        continue;
+                    }
+
+                    int centerRow = HaliteMap.NormalizeNonNegativeRow((coarsePosition.Row * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
+                    int centerColumn = HaliteMap.NormalizeNonNegativeColumn((coarsePosition.Column * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
+                    var center = new Position(centerRow, centerColumn);
+                    if (IsTooCloseToDropoff(center))
+                    {
+                        continue;
+                    }
+
+                    maxCoarseHalite = halite;
+                    maxHaliteCoarsePosition = coarsePosition;
+                    maxCoarseHaliteIndex = i;
+                    maxBaseOffset = baseOffset;
+                    maxDropoffAreaCenterPosition = center;
+                }
+            }
+
+            if (maxCoarseHalite <= 0)
+            {
+                return;
+            }
+
+            var areaInfo = new DropoffAreaInfo()
+            {
+                BaseOffset = maxBaseOffset,
+                Index = maxCoarseHaliteIndex,
+                CenterPosition = maxDropoffAreaCenterPosition,
+                CoarsePosition = maxHaliteCoarsePosition
+            };
+
+            BestDropoffAreaCandidates.Add(areaInfo);
+        }
+
         private bool IsTooCloseToDropoff(Position position)
         {
             foreach (var dropoffPosition in AllDropoffPositions)
@@ -163,25 +193,18 @@
             return false;
         }
 
-        public void CalculateCoarseShipCountMaps()
+        public void UpdateCoarseShipVisitsMaps()
         {
-            int mapWidth = MapBooster.MapWidth;
-            int mapHeight = MapBooster.MapHeight;
-            Debug.Assert(mapWidth % CoarseCellSize == 0 && mapHeight % CoarseCellSize == 0);
-            int coarseMapWidth = mapWidth / CoarseCellSize;
-            int coarseMapHeight = mapHeight / CoarseCellSize;
-            CoarseShipCountMaps = new DataMapLayer<int>[2];
             for (int i = 0; i < 2; i++)
             {
-                var shipCountMap = new DataMapLayer<int>(coarseMapWidth, coarseMapHeight);
-                CoarseShipCountMaps[i] = shipCountMap;
+                var shipCountMap = CoarseShipVisitsMaps[i];
                 int baseOffset = i * (CoarseCellSize / 2);
                 foreach (var ship in MyPlayer.Ships)
                 {
                     int coarseRow = HaliteMap.NormalizeSingleNegativeRow(ship.Position.Row - baseOffset) / CoarseCellSize;
                     int coarseColumn = HaliteMap.NormalizeSingleNegativeColumn(ship.Position.Column - baseOffset) / CoarseCellSize;
                     var coarsePosition = new Position(coarseRow, coarseColumn);
-                    shipCountMap[coarsePosition]++;
+                    shipCountMap[coarsePosition] = true;
                 }
             }
         }

@@ -61,6 +61,7 @@
         private ExpansionMap expansionMap;
         private List<MyShip> builderList;
         private GameSimulator simulator;
+        private MacroEngine macroEngine;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -112,77 +113,11 @@
 
         private void DoMacroTasks()
         {
-            bool buildShip = false;
-            bool buildDropoff = false;
+            expansionMap.FindBestCandidates(originForbiddenCellsMap);
 
-            var normalSimulationResult = simulator.RunSimulation(TurnNumber);
-            var buildShipSimulationResult = simulator.RunSimulation(TurnNumber, 
-                simulator.GetMyPlayerBuildShipEvent(1));
+            var decision = macroEngine.MakeDecision(TurnNumber);
 
-            logger.LogInfo("normal: " + normalSimulationResult);
-            logger.LogInfo("just ship: " + buildShipSimulationResult);
-
-            int justShipHalite = buildShipSimulationResult.MyPlayerResult.Halite;
-            if (justShipHalite > normalSimulationResult.MyPlayerResult.Halite)
-            {
-                if (expansionMap.SuitableLocationExists && myPlayer.MyShips.Count > 0)
-                {
-                    int haliteNeeded = GameConstants.ShipCost + GameConstants.DropoffCost - GameConstants.ShipCapacity;
-                    int haliteMissing = Math.Max(haliteNeeded - myPlayer.Halite, 0);
-                    if (haliteMissing == 0 || myPlayer.AverageProfitPerTurn > 0)
-                    {
-
-                        GameSimulator.SimulationResult bestBuildShipAndDropoffSimulationResult = null;
-                        foreach (var dropoffAreaCenterPosition in expansionMap.BestDropoffAreaCandidateCenters)
-                        {
-                            MyShip closestShip = null;
-                            int closestShipDistance = int.MaxValue;
-                            foreach (var ship in myPlayer.MyShips)
-                            {
-                                int distance = originHaliteMap.WraparoundDistance(ship.Position, dropoffAreaCenterPosition);
-                                if (distance < closestShipDistance)
-                                {
-                                    closestShipDistance = distance;
-                                    closestShip = ship;
-                                }
-                            }
-
-                            Debug.Assert(closestShip != null);
-
-                            var buildDropoffSecondEventPair = simulator.GetMyPlayerBuildDropoffEvent(TurnNumber + 2, 10, expansionMap.BestDropoffPosition);
-                            var buildShipAndDropoffSimulationResult = simulator.RunSimulation(TurnNumber,
-                                simulator.GetMyPlayerBuildShipEvent(TurnNumber + 1),
-                                buildDropoffSecondEventPair.Item1, buildDropoffSecondEventPair.Item2);
-
-                        }
-
-
-                        var buildDropoffFirstEventPair = simulator.GetMyPlayerBuildDropoffEvent(TurnNumber + 1, 10, expansionMap.BestDropoffPosition);
-                        var buildDropoffAndShipSimulationResult = simulator.RunSimulation(TurnNumber,
-                            buildDropoffFirstEventPair.Item1, buildDropoffFirstEventPair.Item2,
-                            simulator.GetMyPlayerBuildShipEvent(TurnNumber + 10));
-
-                        int dropoffAndShipHalite = buildDropoffAndShipSimulationResult.MyPlayerResult.Halite;
-                        bool isShipThenDropoffBetterThanOtherWayAround = (shipAndDropoffHalite > dropoffAndShipHalite);
-                        if ((justShipHalite > shipAndDropoffHalite
-                            && justShipHalite > dropoffAndShipHalite)
-                            || isShipThenDropoffBetterThanOtherWayAround)
-                        {
-                            buildShip = true;
-                        }
-                        else
-                        {
-                            buildDropoff = true;
-                        }
-                    }
-                }
-                else
-                {
-                    buildShip = true;
-                }
-            }
-
-            if (!buildDropoff && builderList.Count > 0)
+            if (!decision.BuildDropoff && builderList.Count > 0)
             {
                 foreach (var builder in builderList.ToArray())
                 {
@@ -190,7 +125,7 @@
                 }
             }
 
-            if (buildShip)
+            if (decision.BuildShip)
             {
                 if (myPlayer.Halite >= GameConstants.ShipCost
                     && !forbiddenCellsMap[myPlayer.ShipyardPosition])
@@ -199,8 +134,10 @@
                 }
             }
 
-            if (buildDropoff)
+            if (decision.BuildDropoff)
             {
+                expansionMap.CalculatePaths(decision.DropoffAreaInfo);
+
                 if (builderList.Count == 0)
                 {
                     var builderCandidate = FindBestBuilder();
@@ -361,11 +298,7 @@
 
         private MyShip FindBestBuilder(bool considerOnlyNotAlreadyBuilders = false)
         {
-            if (!expansionMap.SuitableLocationExists)
-            {
-                return null;
-            }
-
+            Debug.Assert(expansionMap.BestDropoffAreaCandidates.Count > 0);
             double bestValue = double.MinValue;
             MyShip bestShip = null;
             foreach (var ship in myPlayer.MyShips)
@@ -552,12 +485,7 @@
 
         private void TryAssignOrderToBuilder(MyShip ship)
         {
-            if (!expansionMap.SuitableLocationExists)
-            {
-                SetShipRole(ship, ShipRole.Outbound);
-                return;
-            }
-
+            Debug.Assert(expansionMap.BestDropoffAreaCandidates.Count > 0);
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             if (neighbourhoodInfo.BestValue == 0)
             {
@@ -1245,6 +1173,28 @@
             };
 
             simulator.Initialize();
+            macroEngine = new MacroEngine()
+            {
+                ExpansionMap = expansionMap,
+                Logger = logger,
+                MapBooster = mapBooster,
+                MyPlayer = myPlayer,
+                Simulator = simulator,
+                TotalTurns = totalTurnCount,
+                TuningSettings = tuningSettings
+            };
+
+            expansionMap = new ExpansionMap()
+            {
+                HaliteMap = originHaliteMap,
+                Logger = logger,
+                MapBooster = mapBooster,
+                MyPlayer = myPlayer,
+                Opponents = opponentPlayers,
+                TuningSettings = tuningSettings
+            };
+
+            expansionMap.Initialize();
 
             haliteEngineInterface.Ready(Name);
         }
@@ -1270,18 +1220,6 @@
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
 
-            expansionMap = new ExpansionMap()
-            {
-                ForbiddenCellsMap = originForbiddenCellsMap,
-                HaliteMap = originHaliteMap,
-                Logger = logger,
-                MapBooster = mapBooster,
-                MyPlayer = myPlayer,
-                Opponents = opponentPlayers,
-                TuningSettings = tuningSettings
-            };
-
-            expansionMap.Calculate();
             /*PaintMap(expansionMap.CoarseHaliteMaps[0], "chm1" + TurnNumber.ToString().PadLeft(3, '0'));
             PaintMap(expansionMap.CoarseHaliteMaps[1], "chm2" + TurnNumber.ToString().PadLeft(3, '0'));
             PaintMap(expansionMap.CoarseShipCountMaps[0], "csc1" + TurnNumber.ToString().PadLeft(3, '0'));

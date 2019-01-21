@@ -36,14 +36,14 @@
                 return decision;
             }
 
-            if (!FindBestDropoffSecondResult(out var dropoffPosition, out var shipThenDropoffResult))
+            if (!FindBestDropoffSecondResult(out var dropoffAreaInfo, out var shipThenDropoffResult))
             {
                 DecisionSimulationResult = shipOnlyResult;
                 decision.BuildShip = true;
                 return decision;
             }
 
-            var dropoffThenShipResult = GetDropoffFirstResult(dropoffPosition);
+            var dropoffThenShipResult = GetDropoffFirstResult(dropoffAreaInfo);
             if ((shipOnlyResult.IsBetterThan(shipThenDropoffResult) && shipOnlyResult.IsBetterThan(dropoffThenShipResult))
                 || shipThenDropoffResult.IsBetterThan(dropoffThenShipResult))
             {
@@ -53,6 +53,7 @@
             }
 
             decision.BuildDropoff = true;
+            decision.DropoffAreaInfo = dropoffAreaInfo;
             decision.BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost);
             DecisionSimulationResult = dropoffThenShipResult;
             return decision;
@@ -73,26 +74,26 @@
             return true;
         }
 
-        private GameSimulator.SimulationResult GetDropoffFirstResult(Position dropoffPosition)
+        private GameSimulator.SimulationResult GetDropoffFirstResult(ExpansionMap.DropoffAreaInfo dropoffAreaInfo)
         {
-            bool builderFound = FindClosestShip(dropoffPosition, out var builder, out var builderDistance);
+            bool builderFound = FindClosestShip(dropoffAreaInfo.CenterPosition, out var builder, out var builderDistance);
             Debug.Assert(builderFound);
 
             var scheduler = new EventScheduler(this);
             int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
             int shipTurnNumber = scheduler.GetShipTurnNumber();
-            var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffPosition);
+            var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfo.CenterPosition);
             var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
             return Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2, shipEvent);
         }
 
-        private bool FindBestDropoffSecondResult(out Position dropoffPosition, out GameSimulator.SimulationResult result)
+        private bool FindBestDropoffSecondResult(out ExpansionMap.DropoffAreaInfo dropoffAreaInfo, out GameSimulator.SimulationResult result)
         {
             GameSimulator.SimulationResult bestResult = null;
-            Position bestPosition = default(Position);
-            foreach (var dropoffAreaCenterPosition in ExpansionMap.BestDropoffAreaCandidateCenters)
+            ExpansionMap.DropoffAreaInfo bestArea = null;
+            foreach (var dropoffAreaInfoCandidate in ExpansionMap.BestDropoffAreaCandidates)
             {
-                if (!FindClosestShip(dropoffAreaCenterPosition, out var builder, out var builderDistance))
+                if (!FindClosestShip(dropoffAreaInfoCandidate.CenterPosition, out var builder, out var builderDistance))
                 {
                     break;
                 }
@@ -102,17 +103,17 @@
                 int shipTurnNumber = scheduler.GetShipTurnNumber();
                 int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
                 var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
-                var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaCenterPosition);
+                var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfoCandidate.CenterPosition);
                 var currentResult = Simulator.RunSimulation(TurnNumber, shipEvent, dropoffEventPair.Item1, dropoffEventPair.Item2);
                 if (bestResult == null || currentResult.IsBetterThan(bestResult))
                 {
                     bestResult = currentResult;
-                    bestPosition = dropoffAreaCenterPosition;
+                    bestArea = dropoffAreaInfoCandidate;
                 }
             }
 
             result = bestResult;
-            dropoffPosition = bestPosition;
+            dropoffAreaInfo = bestArea;
             return (result != null);
         }
 
@@ -146,7 +147,7 @@
         {
             public bool BuildShip;
             public bool BuildDropoff;
-            public Position DropoffLocation;
+            public ExpansionMap.DropoffAreaInfo DropoffAreaInfo;
         }
 
         private class EventScheduler
