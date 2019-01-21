@@ -1,6 +1,7 @@
 ﻿namespace Halite3
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
 
@@ -15,6 +16,7 @@
         public int TotalTurns;
         public Action<BitMapLayer, string> PaintMap;
 
+        public ExpansionMap.DropoffAreaInfo BestDropoffArea;
         public int TurnNumber;
         public GameSimulator.SimulationResult DecisionSimulationResult;
 
@@ -22,84 +24,79 @@
         {
             TurnNumber = turnNumber;
 
-            var decision = new Decision();
-
-            var normalSimulationResult = Simulator.RunSimulation(TurnNumber);
-            Logger.LogInfo("normal: " + normalSimulationResult);
-
-            if (!GetShipOnlyResult(out var shipOnlyResult))
+            var normalResult = RunSimulation("");
+            var oneShipResult = RunSimulation("s");
+            if (oneShipResult.IsBetterThan(normalResult))
             {
-                DecisionSimulationResult = normalSimulationResult;
-                return decision;
+                var fourShipResult = RunSimulation("ssss");
+                if (fourShipResult.IsBetterThan(oneShipResult))
+                {
+                    BestDropoffArea = FindBestDropoffLocation();
+                    if (BestDropoffArea != null)
+                    {
+                        var dropoffThenFiveShipsResult = RunSimulation("dsssss");
+                        var fiveShipsThenDropoffResult = RunSimulation("sssssd");
+
+                        if (dropoffThenFiveShipsResult.IsBetterThan(fourShipResult)
+                            && dropoffThenFiveShipsResult.IsBetterThan(fiveShipsThenDropoffResult))
+                        {
+                            DecisionSimulationResult = dropoffThenFiveShipsResult;
+                            return new Decision()
+                            {
+                                BuildDropoff = true,
+                                DropoffAreaInfo = BestDropoffArea,
+                                BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost)
+                            };
+                        }
+                    }
+                }
+            }
+            else
+            {
+                DecisionSimulationResult = normalResult;
+                return new Decision();
             }
 
-            Logger.LogInfo("ship only: " + shipOnlyResult);
-            if (normalSimulationResult.IsBetterThan(shipOnlyResult))
+            DecisionSimulationResult = oneShipResult;
+            return new Decision()
             {
-                DecisionSimulationResult = normalSimulationResult;
-                return decision;
-            }
-
-            PaintMap(Simulator.VisitedCells, "shipOnlyResultVisted" + TurnNumber.ToString().PadLeft(3, '0'));
-            if (!FindBestDropoffSecondResult(out var dropoffAreaInfo, out var shipThenDropoffResult))
-            {
-                DecisionSimulationResult = shipOnlyResult;
-                decision.BuildShip = true;
-                return decision;
-            }
-
-            PaintMap(Simulator.VisitedCells, "shipThenDropoffResultVisted" + TurnNumber.ToString().PadLeft(3, '0'));
-
-            var dropoffThenShipResult = GetDropoffFirstResult(dropoffAreaInfo);
-            Logger.LogInfo("dropoff candidate =" + dropoffAreaInfo.CenterPosition);
-            Logger.LogInfo("shipThenDropoffResult: " + shipThenDropoffResult);
-            Logger.LogInfo("dropoffThenShipResult: " + dropoffThenShipResult);
-            if ((shipOnlyResult.IsBetterThan(shipThenDropoffResult) && shipOnlyResult.IsBetterThan(dropoffThenShipResult))
-                || shipThenDropoffResult.IsBetterThan(dropoffThenShipResult))
-            {
-                DecisionSimulationResult = shipOnlyResult;
-                decision.BuildShip = true;
-                return decision;
-            }
-
-            decision.BuildDropoff = true;
-            decision.DropoffAreaInfo = dropoffAreaInfo;
-            decision.BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost);
-            DecisionSimulationResult = dropoffThenShipResult;
-            return decision;
+                BuildShip = true
+            };
         }
 
-        private bool GetShipOnlyResult(out GameSimulator.SimulationResult result)
+        private GameSimulator.SimulationResult RunSimulation(string events)
         {
+            var eventList = new List<GameSimulator.PlayerEvent>(events.Length);
             var scheduler = new EventScheduler(this);
-            int shipTurnNumber = scheduler.GetShipTurnNumber();
-            if (shipTurnNumber >= TotalTurns)
+            foreach (char eventCharacter in events)
             {
-                result = null;
-                return false;
+                switch (eventCharacter)
+                {
+                    case 's':
+                        int shipTurnNumber = scheduler.GetShipTurnNumber();
+                        var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
+                        eventList.Add(shipEvent);
+                        break;
+                    case 'd':
+                        int builderDispatchTurn = scheduler.TurnNumber;
+                        bool builderFound = FindClosestShip(BestDropoffArea.CenterPosition, out var builder, out var builderDistance);
+                        Debug.Assert(builderFound);
+                        int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
+                        var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(builderDispatchTurn, dropoffTurnNumber - builderDispatchTurn, BestDropoffArea.CenterPosition);
+                        eventList.Add(dropoffEventPair.Item1);
+                        eventList.Add(dropoffEventPair.Item2);
+                        break;
+                    default:
+                        continue;
+                }
             }
 
-            var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
-            result = Simulator.RunSimulation(TurnNumber, shipEvent);
-            return true;
+            var result = Simulator.RunSimulation(TurnNumber, eventList.ToArray());
+            Logger.LogInfo("RunSimulation(" + events + "): " + result);
+            return result;
         }
 
-        private GameSimulator.SimulationResult GetDropoffFirstResult(ExpansionMap.DropoffAreaInfo dropoffAreaInfo)
-        {
-            bool builderFound = FindClosestShip(dropoffAreaInfo.CenterPosition, out var builder, out var builderDistance);
-            Debug.Assert(builderFound);
-
-            var scheduler = new EventScheduler(this);
-            int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
-            int firstShipTurnNumber = scheduler.GetShipTurnNumber();
-            int secondShipTurnNumber = scheduler.GetShipTurnNumber();
-            var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfo.CenterPosition);
-            var firstShipEvent = Simulator.GetMyPlayerBuildShipEvent(firstShipTurnNumber);
-            var secondShipEvent = Simulator.GetMyPlayerBuildShipEvent(secondShipTurnNumber);
-            return Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2, firstShipEvent, secondShipEvent);
-        }
-
-        private bool FindBestDropoffSecondResult(out ExpansionMap.DropoffAreaInfo dropoffAreaInfo, out GameSimulator.SimulationResult result)
+        private ExpansionMap.DropoffAreaInfo FindBestDropoffLocation()
         {
             GameSimulator.SimulationResult bestResult = null;
             ExpansionMap.DropoffAreaInfo bestArea = null;
@@ -112,13 +109,9 @@
 
                 Debug.Assert(builder != null);
                 var scheduler = new EventScheduler(this);
-                int firstShipTurnNumber = scheduler.GetShipTurnNumber();
-                int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
-                int secondShipTurnNumber = scheduler.GetShipTurnNumber();
-                var firstShipEvent = Simulator.GetMyPlayerBuildShipEvent(firstShipTurnNumber);
+                int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
                 var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfoCandidate.CenterPosition);
-                var secondShipEvent = Simulator.GetMyPlayerBuildShipEvent(secondShipTurnNumber);
-                var currentResult = Simulator.RunSimulation(TurnNumber, firstShipEvent, dropoffEventPair.Item1, dropoffEventPair.Item2, secondShipEvent);
+                var currentResult = Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2);
                 if (bestResult == null || currentResult.IsBetterThan(bestResult))
                 {
                     bestResult = currentResult;
@@ -126,9 +119,7 @@
                 }
             }
 
-            result = bestResult;
-            dropoffAreaInfo = bestArea;
-            return (result != null);
+            return bestArea;
         }
 
         private bool FindClosestShip(Position dropoffPosition, out MyShip ship, out int distance)
@@ -167,27 +158,28 @@
         private class EventScheduler
         {
             private readonly MacroEngine macroEngine;
-            private int myHalite;
-            private int turnNumber;
+
+            public int MyHalite;
+            public int TurnNumber;
 
             public EventScheduler(MacroEngine macroEngine)
             {
                 this.macroEngine = macroEngine;
-                myHalite = this.macroEngine.MyPlayer.Halite;
+                MyHalite = this.macroEngine.MyPlayer.Halite;
                 int haliteSoonGained = this.macroEngine.MyPlayer.MyShips
                     .Where(ship => ship.Role == ShipRole.Inbound 
                         && ship.Destination.HasValue 
                         && ship.DistanceFromDestination <= 2)
                     .Sum(ship => ship.Halite);
-                myHalite += haliteSoonGained;
-                turnNumber = this.macroEngine.TurnNumber;
+                MyHalite += haliteSoonGained;
+                TurnNumber = this.macroEngine.TurnNumber;
             }
 
             public int GetShipTurnNumber()
             {
                 int delay = GetCostDelay(GameConstants.ShipCost);
-                turnNumber += delay;
-                return turnNumber;
+                TurnNumber += delay;
+                return TurnNumber;
             }
 
             public int GetDropoffTurnNumber(int distance, bool onlyForwardToCostDelay = false)
@@ -197,27 +189,27 @@
                 int delay = Math.Max(costDelay, distanceDelay);
                 if (onlyForwardToCostDelay)
                 {
-                    int result = turnNumber + delay;
-                    turnNumber += costDelay;
+                    int result = TurnNumber + delay;
+                    TurnNumber += costDelay;
                     return result;
                 }
                 else
                 {
-                    turnNumber += delay;
+                    TurnNumber += delay;
                     if (distanceDelay > costDelay)
                     {
                         int difference = distanceDelay - costDelay;
-                        myHalite += (int)(difference * macroEngine.MyPlayer.AverageIncomePerTurn);
+                        MyHalite += (int)(difference * macroEngine.MyPlayer.AverageIncomePerTurn);
                     }
 
-                    return turnNumber;
+                    return TurnNumber;
                 }
             }
 
             private int GetCostDelay(int cost)
             {
                 double profitPerTurn = macroEngine.MyPlayer.AverageIncomePerTurn;
-                int haliteMissing = Math.Max(cost - myHalite, 0);
+                int haliteMissing = Math.Max(cost - MyHalite, 0);
                 
                 int delay = (haliteMissing == 0)
                     ? 0
@@ -225,7 +217,7 @@
                         ? 1000
                         : (int)Math.Ceiling(haliteMissing / profitPerTurn);
 
-                myHalite += (int)(delay * profitPerTurn) - cost;
+                MyHalite += (int)(delay * profitPerTurn) - cost;
                 return delay;
             }
         }
