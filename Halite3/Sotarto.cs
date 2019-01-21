@@ -125,28 +125,60 @@
             int justShipHalite = buildShipSimulationResult.MyPlayerResult.Halite;
             if (justShipHalite > normalSimulationResult.MyPlayerResult.Halite)
             {
-                var buildDropoffSecondEventPair = simulator.GetMyPlayerBuildDropoffEvent(2, 10, expansionMap.BestDropoffPosition);
-                var buildShipAndDropoffSimulationResult = simulator.RunSimulation(TurnNumber,
-                    simulator.GetMyPlayerBuildShipEvent(1),
-                    buildDropoffSecondEventPair.Item1, buildDropoffSecondEventPair.Item2);
-
-                var buildDropoffFirstEventPair = simulator.GetMyPlayerBuildDropoffEvent(1, 10, expansionMap.BestDropoffPosition);
-                var buildDropoffAndShipSimulationResult = simulator.RunSimulation(TurnNumber,
-                    buildDropoffFirstEventPair.Item1, buildDropoffFirstEventPair.Item2,
-                    simulator.GetMyPlayerBuildShipEvent(10));
-
-                int shipAndDropoffHalite = buildShipAndDropoffSimulationResult.MyPlayerResult.Halite;
-                int dropoffAndShipHalite = buildDropoffAndShipSimulationResult.MyPlayerResult.Halite;
-                bool isShipThenDropoffBetterThanOtherWayAround = (shipAndDropoffHalite > dropoffAndShipHalite);
-                if ((justShipHalite > shipAndDropoffHalite
-                    && justShipHalite > dropoffAndShipHalite)
-                    || isShipThenDropoffBetterThanOtherWayAround)
+                if (expansionMap.SuitableLocationExists && myPlayer.MyShips.Count > 0)
                 {
-                    buildShip = true;
+                    int haliteNeeded = GameConstants.ShipCost + GameConstants.DropoffCost - GameConstants.ShipCapacity;
+                    int haliteMissing = Math.Max(haliteNeeded - myPlayer.Halite, 0);
+                    if (haliteMissing == 0 || myPlayer.AverageProfitPerTurn > 0)
+                    {
+
+                        GameSimulator.SimulationResult bestBuildShipAndDropoffSimulationResult = null;
+                        foreach (var dropoffAreaCenterPosition in expansionMap.BestDropoffAreaCandidateCenters)
+                        {
+                            MyShip closestShip = null;
+                            int closestShipDistance = int.MaxValue;
+                            foreach (var ship in myPlayer.MyShips)
+                            {
+                                int distance = originHaliteMap.WraparoundDistance(ship.Position, dropoffAreaCenterPosition);
+                                if (distance < closestShipDistance)
+                                {
+                                    closestShipDistance = distance;
+                                    closestShip = ship;
+                                }
+                            }
+
+                            Debug.Assert(closestShip != null);
+
+                            var buildDropoffSecondEventPair = simulator.GetMyPlayerBuildDropoffEvent(TurnNumber + 2, 10, expansionMap.BestDropoffPosition);
+                            var buildShipAndDropoffSimulationResult = simulator.RunSimulation(TurnNumber,
+                                simulator.GetMyPlayerBuildShipEvent(TurnNumber + 1),
+                                buildDropoffSecondEventPair.Item1, buildDropoffSecondEventPair.Item2);
+
+                        }
+
+
+                        var buildDropoffFirstEventPair = simulator.GetMyPlayerBuildDropoffEvent(TurnNumber + 1, 10, expansionMap.BestDropoffPosition);
+                        var buildDropoffAndShipSimulationResult = simulator.RunSimulation(TurnNumber,
+                            buildDropoffFirstEventPair.Item1, buildDropoffFirstEventPair.Item2,
+                            simulator.GetMyPlayerBuildShipEvent(TurnNumber + 10));
+
+                        int dropoffAndShipHalite = buildDropoffAndShipSimulationResult.MyPlayerResult.Halite;
+                        bool isShipThenDropoffBetterThanOtherWayAround = (shipAndDropoffHalite > dropoffAndShipHalite);
+                        if ((justShipHalite > shipAndDropoffHalite
+                            && justShipHalite > dropoffAndShipHalite)
+                            || isShipThenDropoffBetterThanOtherWayAround)
+                        {
+                            buildShip = true;
+                        }
+                        else
+                        {
+                            buildDropoff = true;
+                        }
+                    }
                 }
                 else
                 {
-                    buildDropoff = true;
+                    buildShip = true;
                 }
             }
 
@@ -1820,6 +1852,10 @@
                                         maxHalite = neighbourHalite;
                                         maxHalitePosition = position;
                                     }
+                                    else if (neighbourHalite > secondMaxHalite)
+                                    {
+                                        secondMaxHalite = neighbourHalite;
+                                    }
                                 }
 
                                 if (secondMaxHalite > 0)
@@ -1849,6 +1885,10 @@
                                         secondMinHalite = minHalite;
                                         minHalite = neighbourHalite;
                                         minHalitePosition = position;
+                                    }
+                                    else if (neighbourHalite < secondMinHalite)
+                                    {
+                                        secondMinHalite = neighbourHalite;
                                     }
                                 }
 

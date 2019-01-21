@@ -82,7 +82,7 @@
                     Logger.LogInfo("MyPlayer: Message for new " + dropoff + " not found, assuming the builder sunk.");
                     // The builder sunk, assuming that money is not lost in this case.
                     Halite += GameConstants.DropoffCost;
-                    TotalReturnedHalite -= GameConstants.DropoffCost;
+                    ProfitLastTurn -= GameConstants.DropoffCost;
                     Dropoffs.Remove(dropoff);
                 }
                 else

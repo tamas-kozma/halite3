@@ -1,5 +1,6 @@
 ﻿namespace Halite3
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
@@ -29,6 +30,9 @@
 
         public DataMapLayer<Ship> ShipMap { get; protected set; }
         public DataMapLayer<int> DistanceFromDropoffMap { get; protected set; }
+        public Queue<int> LastFewTurnsProfit = new Queue<int>();
+        public int ProfitLastTurn;
+        public double AverageProfitPerTurn;
 
         public virtual void Initialize(PlayerInitializationMessage playerMessage, DataMapLayer<int> initialHaliteMap)
         {
@@ -61,17 +65,24 @@
             if (turnMessage.TurnNumber == 1)
             {
                 InitialHalite = Halite;
+                ProfitLastTurn = 0;
+            }
+            else
+            {
+                ProfitLastTurn = Halite - haliteBefore;
             }
 
             HandleDropoffMessages(playerMessage);
             HandleShipMessages(playerMessage);
 
-            if (turnMessage.TurnNumber != 1)
+            TotalReturnedHalite += ProfitLastTurn;
+            LastFewTurnsProfit.Enqueue(ProfitLastTurn);
+            if (LastFewTurnsProfit.Count > 60)
             {
-                // This can be negative, but that has already been accounted for when new ships and dropoffs got registered.
-                int haliteDifference = Halite - haliteBefore;
-                TotalReturnedHalite += haliteDifference;
+                LastFewTurnsProfit.Dequeue();
             }
+
+            AverageProfitPerTurn = LastFewTurnsProfit.Average();
         }
 
         public static void UpdateDropoffDistances(IEnumerable<Dropoff> dropoffs, DataMapLayer<int> map, int minAge = int.MinValue)
@@ -133,7 +144,7 @@
                 var dropoff = Dropoffs.FirstOrDefault(candidate => candidate.Id == message.DropoffId);
                 if (dropoff == null)
                 {
-                    TotalReturnedHalite += GameConstants.DropoffCost;
+                    ProfitLastTurn += GameConstants.DropoffCost;
                     dropoff = new Dropoff(this)
                     {
                         Id = message.DropoffId,
@@ -183,7 +194,7 @@
             Debug.Assert(shipMessagesById.Count <= 1);
             foreach (var shipMessage in shipMessagesById.Values)
             {
-                TotalReturnedHalite += GameConstants.ShipCost;
+                ProfitLastTurn += GameConstants.ShipCost;
                 var ship = HandleNewShip(shipMessage);
                 ship.Id = shipMessage.ShipId;
                 ship.Position = shipMessage.Position;

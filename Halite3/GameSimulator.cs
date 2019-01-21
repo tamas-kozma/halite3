@@ -254,20 +254,29 @@
             result.MyPlayerResult = result.PlayerResultMap[MyPlayer.Id];
             int myHalite = result.MyPlayerResult.Halite;
             int standing = 1;
+            int maxHalite = myHalite;
+            PlayerResult winnerResult = result.MyPlayerResult;
             foreach (var playerResult in result.PlayerResultMap.Values)
             {
                 if (playerResult.Halite > myHalite)
                 {
                     standing++;
                 }
+
+                if (playerResult.Halite > maxHalite)
+                {
+                    maxHalite = playerResult.Halite;
+                    winnerResult = playerResult;
+                }
             }
 
             result.MyPlayerStanding = standing;
+            result.WinnerPlayerResult = winnerResult;
 
             return result;
         }
 
-        public class SimulationResult
+        public class SimulationResult : IComparable<SimulationResult>
         {
             public Dictionary<string, PlayerResult> PlayerResultMap;
             public BitMapLayer VisitedCells;
@@ -276,6 +285,57 @@
             public double VisitedCellRatio;
             public PlayerResult MyPlayerResult;
             public int MyPlayerStanding;
+            public PlayerResult WinnerPlayerResult;
+
+            public bool IsBetterThan(SimulationResult other)
+            {
+                return CompareTo(other) > 0;
+            }
+
+            // Better is greater.
+            public int CompareTo(SimulationResult other)
+            {
+                if (MyPlayerStanding != other.MyPlayerStanding)
+                {
+                    return other.MyPlayerStanding - MyPlayerStanding;
+                }
+
+                if (WinnerPlayerResult.Halite <= 0)
+                {
+                    return 0;
+                }
+
+                if (MyPlayerStanding == 1)
+                {
+                    var second = GetPlayerResultByStanding(2);
+                    var otherSecond = other.GetPlayerResultByStanding(2);
+                    double secondHaliteRatio = second.Halite / (double)WinnerPlayerResult.Halite;
+                    double otherSecondHaliteRatio = otherSecond.Halite / (double)other.WinnerPlayerResult.Halite;
+                    if (secondHaliteRatio != otherSecondHaliteRatio)
+                    {
+                        return Math.Sign(otherSecondHaliteRatio - secondHaliteRatio);
+                    }
+                }
+                else
+                {
+                    double myHaliteRatio = MyPlayerResult.Halite / (double)WinnerPlayerResult.Halite;
+                    double otherMyHaliteRatio = other.MyPlayerResult.Halite / (double)other.WinnerPlayerResult.Halite;
+                    if (myHaliteRatio != otherMyHaliteRatio)
+                    {
+                        return Math.Sign(myHaliteRatio - otherMyHaliteRatio);
+                    }
+                }
+
+                return MyPlayerResult.Halite - other.MyPlayerResult.Halite;
+            }
+
+            public PlayerResult GetPlayerResultByStanding(int standing)
+            {
+                return PlayerResultMap.Values
+                    .OrderByDescending(result => result.Halite)
+                    .Skip(standing - 1)
+                    .First();
+            }
 
             public override string ToString()
             {

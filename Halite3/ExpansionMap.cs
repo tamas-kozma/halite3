@@ -1,5 +1,6 @@
 ﻿namespace Halite3
 {
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
 
@@ -21,6 +22,7 @@
         public DataMapLayer<double> Paths;
         public bool SuitableLocationExists;
         public Position BestDropoffPosition;
+        public List<Position> BestDropoffAreaCandidateCenters;
 
         public void Calculate()
         {
@@ -36,10 +38,12 @@
                 .Select(dropoff => dropoff.Position)
                 .ToArray();
 
+            BestDropoffAreaCandidateCenters = new List<Position>();
             int maxCoarseHalite = int.MinValue;
             var maxHaliteCoarsePosition = default(Position);
             int maxCoarseHaliteIndex = 0;
             int maxBaseOffset = 0;
+            Position maxDropoffAreaCenterPosition = default(Position);
             var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
             for (int i = 0; i < 2; i++)
             {
@@ -78,6 +82,7 @@
                     maxHaliteCoarsePosition = coarsePosition;
                     maxCoarseHaliteIndex = i;
                     maxBaseOffset = baseOffset;
+                    maxDropoffAreaCenterPosition = center;
                 }
             }
 
@@ -111,6 +116,7 @@
             SuitableLocationExists = (queue.Count > 0);
             if (SuitableLocationExists)
             {
+                BestDropoffAreaCandidateCenters.Add(maxDropoffAreaCenterPosition);
                 BestDropoffPosition = queue.Peek();
             }
 
