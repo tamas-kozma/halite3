@@ -115,6 +115,7 @@
         {
             expansionMap.FindBestCandidates(originForbiddenCellsMap);
 
+            macroEngine.PaintMap = PaintMap;
             var decision = macroEngine.MakeDecision(TurnNumber);
 
             if (!decision.BuildDropoff && builderList.Count > 0)
@@ -1173,16 +1174,6 @@
             };
 
             simulator.Initialize();
-            macroEngine = new MacroEngine()
-            {
-                ExpansionMap = expansionMap,
-                Logger = logger,
-                MapBooster = mapBooster,
-                MyPlayer = myPlayer,
-                Simulator = simulator,
-                TotalTurns = totalTurnCount,
-                TuningSettings = tuningSettings
-            };
 
             expansionMap = new ExpansionMap()
             {
@@ -1195,6 +1186,17 @@
             };
 
             expansionMap.Initialize();
+
+            macroEngine = new MacroEngine()
+            {
+                ExpansionMap = expansionMap,
+                Logger = logger,
+                MapBooster = mapBooster,
+                MyPlayer = myPlayer,
+                Simulator = simulator,
+                TotalTurns = totalTurnCount,
+                TuningSettings = tuningSettings
+            };
 
             haliteEngineInterface.Ready(Name);
         }
@@ -1232,7 +1234,7 @@
             PaintMap(originOutboundMap.HarvestTimeMap, TurnNumber.ToString().PadLeft(3, '0') + "HarvestTimeMap", 250);
             PaintMap(originOutboundMap.OutboundPaths, TurnNumber.ToString().PadLeft(3, '0') + "OutboundPaths");*/
 
-            logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
+            logger.LogInfo("Turn " + TurnNumber + ": Halite on map " + totalHaliteOnMap + ", halite returned " + myPlayer.TotalReturnedHalite + ", ship count " + myPlayer.Ships.Count + ", ships sunk this turn " + myPlayer.Shipwrecks.Count + ".");
 
             return true;
         }

@@ -81,7 +81,7 @@
                 eventQueue.Enqueue(playerEvent.TurnNumber, playerEvent);
             }
 
-            Debug.Assert(eventQueue.Count == 0 || eventQueue.Peek().TurnNumber >= TurnNumber);
+            Debug.Assert(eventQueue.Count == 0 || eventQueue.Peek().TurnNumber >= TurnNumber, "queue count = " + eventQueue.Count + ", current TurnNubmer = " + TurnNumber + ", event TurnNumber=" + ((eventQueue.Count > 0) ? eventQueue.Peek().TurnNumber : -1));
 
             bool simulationDone = false;
             int turn = TurnNumber;
@@ -98,6 +98,7 @@
                     while (eventQueue.Count > 0 && eventQueue.PeekPriority() == turn)
                     {
                         var playerEvent = eventQueue.Dequeue();
+                        Logger.LogDebug("Applying " + playerEvent);
                         var playerInfo = PlayerInfoMap[playerEvent.Player.Id];
                         playerInfo.HaliteAdjustments += playerEvent.HaliteChange;
                         playerInfo.ShipCount += playerEvent.ShipCountChange;
@@ -202,11 +203,7 @@
             SIMULATION_DONE:
             foreach (var playerEvent in eventQueue)
             {
-                if (playerEvent.TurnNumber > TotalTurns)
-                {
-                    continue;
-                }
-
+                Logger.LogDebug("Applying only halite change from late " + playerEvent);
                 PlayerInfoMap[playerEvent.Player.Id].HaliteAdjustments += playerEvent.HaliteChange;
             }
 
@@ -363,6 +360,11 @@
             public int ShipCountChange;
             public Position? NewDropoffPosition;
             public int HaliteChange;
+
+            public override string ToString()
+            {
+                return "SimulationEvent: player=" + Player + ", turn=" + TurnNumber + ", SC" + ShipCountChange + ", HC=" + HaliteChange + ", DP=" + NewDropoffPosition;
+            }
         }
 
         public class PlayerInfo
@@ -404,7 +406,7 @@
                 HaliteAdjustments = 0;
                 Dropoffs.Clear();
                 Dropoffs.AddRange(Player.Dropoffs);
-                DropoffDistanceMap = Player.DistanceFromDropoffMap;
+                DropoffDistanceMap = new DataMapLayer<int>(Player.DistanceFromDropoffMap);
                 ShipCount = Player.Ships.Count;
                 int plannedDropoffCount = Player.Dropoffs.Count(dropoff => dropoff.IsPlanned);
                 ShipCount -= plannedDropoffCount;

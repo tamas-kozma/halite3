@@ -65,6 +65,7 @@
         protected override Ship HandleNewShip(ShipMessage shipMessage)
         {
             var ship = new OpponentShip(this);
+            ship.CurrentJobStartTurn = TurnNumber;
             ship.PreviousPosition = shipMessage.Position;
             OpponentShips.Add(ship);
             Debug.Assert(OpponentShipMap[shipMessage.Position] == null);

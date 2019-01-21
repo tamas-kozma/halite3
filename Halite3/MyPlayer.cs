@@ -33,7 +33,8 @@
                 Position = ShipyardPosition,
                 Role = ShipRole.Outbound,
                 PreviousPosition = ShipyardPosition,
-                DistanceFromDropoff = 0
+                DistanceFromDropoff = 0,
+                CurrentJobStartTurn = TurnNumber
             };
         }
 
@@ -82,7 +83,7 @@
                     Logger.LogInfo("MyPlayer: Message for new " + dropoff + " not found, assuming the builder sunk.");
                     // The builder sunk, assuming that money is not lost in this case.
                     Halite += GameConstants.DropoffCost;
-                    ProfitLastTurn -= GameConstants.DropoffCost;
+                    IncomeLastTurn -= GameConstants.DropoffCost;
                     Dropoffs.Remove(dropoff);
                 }
                 else

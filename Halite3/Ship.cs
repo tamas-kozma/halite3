@@ -13,6 +13,7 @@
         public int Halite { get; set; }
         public Position PreviousPosition { get; set; }
         public int DistanceFromDropoff { get; set; }
+        public int CurrentJobStartTurn { get; set; }
 
         protected virtual string ToStringCore()
         {

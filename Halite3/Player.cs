@@ -30,9 +30,11 @@
 
         public DataMapLayer<Ship> ShipMap { get; protected set; }
         public DataMapLayer<int> DistanceFromDropoffMap { get; protected set; }
-        public Queue<int> LastFewTurnsProfit = new Queue<int>();
-        public int ProfitLastTurn;
-        public double AverageProfitPerTurn;
+        public int IncomeLastTurn;
+        public int TurnNumber;
+        public Queue<int> RecentJobTimes = new Queue<int>();
+        public Queue<int> RecentJobIncomes = new Queue<int>();
+        public double AverageIncomePerTurn;
 
         public virtual void Initialize(PlayerInitializationMessage playerMessage, DataMapLayer<int> initialHaliteMap)
         {
@@ -59,30 +61,26 @@
 
         public void Update(TurnMessage turnMessage)
         {
+            TurnNumber = turnMessage.TurnNumber;
+
             var playerMessage = turnMessage.PlayerUpdates.Single(message => message.PlayerId == Id);
             int haliteBefore = Halite;
             Halite = playerMessage.Halite;
             if (turnMessage.TurnNumber == 1)
             {
                 InitialHalite = Halite;
-                ProfitLastTurn = 0;
+                IncomeLastTurn = 0;
             }
             else
             {
-                ProfitLastTurn = Halite - haliteBefore;
+                IncomeLastTurn = Halite - haliteBefore;
             }
 
             HandleDropoffMessages(playerMessage);
             HandleShipMessages(playerMessage);
 
-            TotalReturnedHalite += ProfitLastTurn;
-            LastFewTurnsProfit.Enqueue(ProfitLastTurn);
-            if (LastFewTurnsProfit.Count > 60)
-            {
-                LastFewTurnsProfit.Dequeue();
-            }
-
-            AverageProfitPerTurn = LastFewTurnsProfit.Average();
+            TotalReturnedHalite += IncomeLastTurn;
+            Logger.LogDebug("AverageIncomePerTurn = " + AverageIncomePerTurn);
         }
 
         public static void UpdateDropoffDistances(IEnumerable<Dropoff> dropoffs, DataMapLayer<int> map, int minAge = int.MinValue)
@@ -144,7 +142,7 @@
                 var dropoff = Dropoffs.FirstOrDefault(candidate => candidate.Id == message.DropoffId);
                 if (dropoff == null)
                 {
-                    ProfitLastTurn += GameConstants.DropoffCost;
+                    IncomeLastTurn += GameConstants.DropoffCost;
                     dropoff = new Dropoff(this)
                     {
                         Id = message.DropoffId,
@@ -187,6 +185,30 @@
                     shipMessagesById.Remove(ship.Id);
                 }
 
+                if (ship.Halite > GameConstants.ShipCapacity / 2 && shipMessage.Halite == 0)
+                {
+                    RecentJobIncomes.Enqueue(ship.Halite);
+                    RecentJobTimes.Enqueue(TurnNumber - ship.CurrentJobStartTurn);
+
+                    Debug.Assert(RecentJobIncomes.Count == RecentJobTimes.Count);
+                    if (RecentJobIncomes.Count > 50)
+                    {
+                        RecentJobIncomes.Dequeue();
+                        RecentJobTimes.Dequeue();
+                    }
+
+                    double averageJobIncome = RecentJobIncomes.Average();
+                    double averageJobTime = RecentJobTimes.Average();
+
+                    Debug.Assert(averageJobTime != 0);
+                    double averageIncomePerShipPerTurn = averageJobIncome / averageJobTime;
+                    AverageIncomePerTurn = Ships.Count * averageIncomePerShipPerTurn;
+
+                    Logger.LogDebug("Average income update: data count=" + RecentJobIncomes.Count + ", averageJobIncome=" + averageJobIncome + ", averageJobTime=" + averageJobTime + ", averageIncomePerShipPerTurn=" + averageIncomePerShipPerTurn + ", AverageIncomePerTurn=" + AverageIncomePerTurn);
+
+                    ship.CurrentJobStartTurn = TurnNumber;
+                }
+
                 HandleAliveShip(ship, shipMessage);
             }
 
@@ -194,7 +216,7 @@
             Debug.Assert(shipMessagesById.Count <= 1);
             foreach (var shipMessage in shipMessagesById.Values)
             {
-                ProfitLastTurn += GameConstants.ShipCost;
+                IncomeLastTurn += GameConstants.ShipCost;
                 var ship = HandleNewShip(shipMessage);
                 ship.Id = shipMessage.ShipId;
                 ship.Position = shipMessage.Position;

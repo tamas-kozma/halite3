@@ -2,6 +2,7 @@
 {
     using System;
     using System.Diagnostics;
+    using System.Linq;
 
     public sealed class MacroEngine
     {
@@ -12,12 +13,15 @@
         public Logger Logger;
         public MapBooster MapBooster;
         public int TotalTurns;
+        public Action<BitMapLayer, string> PaintMap;
 
         public int TurnNumber;
         public GameSimulator.SimulationResult DecisionSimulationResult;
 
         public Decision MakeDecision(int turnNumber)
         {
+            TurnNumber = turnNumber;
+
             var decision = new Decision();
 
             var normalSimulationResult = Simulator.RunSimulation(TurnNumber);
@@ -36,6 +40,7 @@
                 return decision;
             }
 
+            PaintMap(Simulator.VisitedCells, "shipOnlyResultVisted" + TurnNumber.ToString().PadLeft(3, '0'));
             if (!FindBestDropoffSecondResult(out var dropoffAreaInfo, out var shipThenDropoffResult))
             {
                 DecisionSimulationResult = shipOnlyResult;
@@ -43,7 +48,12 @@
                 return decision;
             }
 
+            PaintMap(Simulator.VisitedCells, "shipThenDropoffResultVisted" + TurnNumber.ToString().PadLeft(3, '0'));
+
             var dropoffThenShipResult = GetDropoffFirstResult(dropoffAreaInfo);
+            Logger.LogInfo("dropoff candidate =" + dropoffAreaInfo.CenterPosition);
+            Logger.LogInfo("shipThenDropoffResult: " + shipThenDropoffResult);
+            Logger.LogInfo("dropoffThenShipResult: " + dropoffThenShipResult);
             if ((shipOnlyResult.IsBetterThan(shipThenDropoffResult) && shipOnlyResult.IsBetterThan(dropoffThenShipResult))
                 || shipThenDropoffResult.IsBetterThan(dropoffThenShipResult))
             {
@@ -81,10 +91,12 @@
 
             var scheduler = new EventScheduler(this);
             int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
-            int shipTurnNumber = scheduler.GetShipTurnNumber();
+            int firstShipTurnNumber = scheduler.GetShipTurnNumber();
+            int secondShipTurnNumber = scheduler.GetShipTurnNumber();
             var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfo.CenterPosition);
-            var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
-            return Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2, shipEvent);
+            var firstShipEvent = Simulator.GetMyPlayerBuildShipEvent(firstShipTurnNumber);
+            var secondShipEvent = Simulator.GetMyPlayerBuildShipEvent(secondShipTurnNumber);
+            return Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2, firstShipEvent, secondShipEvent);
         }
 
         private bool FindBestDropoffSecondResult(out ExpansionMap.DropoffAreaInfo dropoffAreaInfo, out GameSimulator.SimulationResult result)
@@ -100,11 +112,13 @@
 
                 Debug.Assert(builder != null);
                 var scheduler = new EventScheduler(this);
-                int shipTurnNumber = scheduler.GetShipTurnNumber();
-                int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
-                var shipEvent = Simulator.GetMyPlayerBuildShipEvent(shipTurnNumber);
+                int firstShipTurnNumber = scheduler.GetShipTurnNumber();
+                int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
+                int secondShipTurnNumber = scheduler.GetShipTurnNumber();
+                var firstShipEvent = Simulator.GetMyPlayerBuildShipEvent(firstShipTurnNumber);
                 var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfoCandidate.CenterPosition);
-                var currentResult = Simulator.RunSimulation(TurnNumber, shipEvent, dropoffEventPair.Item1, dropoffEventPair.Item2);
+                var secondShipEvent = Simulator.GetMyPlayerBuildShipEvent(secondShipTurnNumber);
+                var currentResult = Simulator.RunSimulation(TurnNumber, firstShipEvent, dropoffEventPair.Item1, dropoffEventPair.Item2, secondShipEvent);
                 if (bestResult == null || currentResult.IsBetterThan(bestResult))
                 {
                     bestResult = currentResult;
@@ -160,6 +174,12 @@
             {
                 this.macroEngine = macroEngine;
                 myHalite = this.macroEngine.MyPlayer.Halite;
+                int haliteSoonGained = this.macroEngine.MyPlayer.MyShips
+                    .Where(ship => ship.Role == ShipRole.Inbound 
+                        && ship.Destination.HasValue 
+                        && ship.DistanceFromDestination <= 2)
+                    .Sum(ship => ship.Halite);
+                myHalite += haliteSoonGained;
                 turnNumber = this.macroEngine.TurnNumber;
             }
 
@@ -187,7 +207,7 @@
                     if (distanceDelay > costDelay)
                     {
                         int difference = distanceDelay - costDelay;
-                        myHalite += (int)(difference * macroEngine.MyPlayer.AverageProfitPerTurn);
+                        myHalite += (int)(difference * macroEngine.MyPlayer.AverageIncomePerTurn);
                     }
 
                     return turnNumber;
@@ -196,12 +216,14 @@
 
             private int GetCostDelay(int cost)
             {
-                double profitPerTurn = macroEngine.MyPlayer.AverageProfitPerTurn;
+                double profitPerTurn = macroEngine.MyPlayer.AverageIncomePerTurn;
                 int haliteMissing = Math.Max(cost - myHalite, 0);
                 
-                int delay = (haliteMissing > 0 && profitPerTurn == 0) 
-                    ? 1000
-                    : (int)Math.Ceiling(haliteMissing / profitPerTurn);
+                int delay = (haliteMissing == 0)
+                    ? 0
+                    : (profitPerTurn == 0) 
+                        ? 1000
+                        : (int)Math.Ceiling(haliteMissing / profitPerTurn);
 
                 myHalite += (int)(delay * profitPerTurn) - cost;
                 return delay;
