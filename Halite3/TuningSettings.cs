@@ -6,7 +6,7 @@ namespace Halite3
     {
         public int MapOpponentShipInvisibilityRadius { get; set; } = 2;
         public int MapOpponentDropoffNoGoZoneRadius { get; set; } = 3;
-        public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 25;
+        public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 10;
 
         public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 150;
         public int OpponentShipCertainlyInboundMinHalite { get; set; } = 990;
@@ -18,11 +18,11 @@ namespace Halite3
         public double AdjustedHaliteMapLostHaliteMultiplier { get; set; } = 1d;
         public double AdjustedHaliteMapMaxHalite { get; set; } = 2000;
 
-        public double OutboundMapHarvestAreaCenterWeight { get; set; } = 1d;
+        public double OutboundMapHarvestAreaCenterWeight { get; set; } = 2d;
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
         public int OutboundMapDropoffAvoidanceRadius { get; set; } = 2;
 
-        public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 0.85d;
+        public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 1d;
         public int OutboundShipSwitchToOriginMapDistance { get; set; } = 2;
         public int OutboundShipAntiSquarePathMinDifference { get; set; } = 3;
 

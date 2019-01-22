@@ -16,8 +16,8 @@
         public MapBooster MapBooster;
         public BitMapLayer ForbiddenCellsMap;
 
-        public Position[] AllOpponentDropoffPositions;
-        public Position[] AllMyDropoffPositions;
+        public List<Position> AllOpponentDropoffPositions;
+        public List<Position> AllMyDropoffPositions;
         public DataMapLayer<int>[] CoarseHaliteMaps;
         public BitMapLayer[] CoarseShipVisitsMaps;
         public DataMapLayer<double> Paths;
@@ -49,8 +49,9 @@
             CalculateCandidates();
         }
 
-        public void CalculatePaths(DropoffAreaInfo targetArea)
+        public bool CalculatePaths(DropoffAreaInfo targetArea)
         {
+            ResetDropoffPosition();
             Paths = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
             var queue = new DoublePriorityQueue<Position>(HaliteMap.CellCount);
             int rowOffset = targetArea.BaseOffset + targetArea.CoarsePosition.Row * CoarseCellSize;
@@ -62,7 +63,23 @@
                 {
                     int column = HaliteMap.NormalizeNonNegativeRow(columnOffset + cellColumn);
                     var position = new Position(row, column);
-                    if (IsTooCloseToDropoff(position))
+                    if (ForbiddenCellsMap[position] 
+                        || IsTooCloseToDropoff(position))
+                    {
+                        continue;
+                    }
+
+                    bool forbiddenNeighbourFound = false;
+                    foreach (var neighbour in MapBooster.GetNeighbours(position))
+                    {
+                        if (ForbiddenCellsMap[neighbour])
+                        {
+                            forbiddenNeighbourFound = true;
+                            break;
+                        }
+                    }
+
+                    if (forbiddenNeighbourFound)
                     {
                         continue;
                     }
@@ -72,7 +89,12 @@
                 }
             }
 
-            Debug.Assert(queue.Count > 0);
+            if (queue.Count == 0)
+            {
+                return false;
+            }
+
+            int visitedCellCount = 0;
             while (queue.Count > 0)
             {
                 double halite = -1 * queue.PeekPriority();
@@ -88,6 +110,7 @@
                 }
 
                 Paths[position] = halite;
+                visitedCellCount++;
                 double nextHalite = halite * 0.8d;
                 foreach (var neighbour in MapBooster.GetNeighbours(position))
                 {
@@ -100,6 +123,8 @@
                     queue.Enqueue(-1 * nextHalite, neighbour);
                 }
             }
+
+            return visitedCellCount > CoarseCellSize * CoarseCellSize * 9;
         }
 
         public sealed class DropoffAreaInfo
@@ -110,72 +135,82 @@
             internal int BaseOffset;
         }
 
+        private void ResetDropoffPosition()
+        {
+            AllMyDropoffPositions = MyPlayer.Dropoffs.Select(dropoff => dropoff.Position).ToList();
+            AllOpponentDropoffPositions = Opponents.SelectMany(opponent => opponent.Dropoffs).Select(dropoff => dropoff.Position).ToList();
+        }
+
         private void CalculateCandidates()
         {
-            AllMyDropoffPositions = MyPlayer.Dropoffs.Select(dropoff => dropoff.Position).ToArray();
-            AllOpponentDropoffPositions = Opponents.SelectMany(opponent => opponent.Dropoffs).Select(dropoff => dropoff.Position).ToArray();
+            ResetDropoffPosition();
 
-            int maxCoarseHalite = int.MinValue;
-            var maxHaliteCoarsePosition = default(Position);
-            int maxCoarseHaliteIndex = 0;
-            int maxBaseOffset = 0;
-            Position maxDropoffAreaCenterPosition = default(Position);
-            var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
-            for (int i = 0; i < 2; i++)
+            while (true)
             {
-                int baseOffset = i * (CoarseCellSize / 2);
-                var coarseHaliteMap = CoarseHaliteMaps[i];
-                var coarseShipCountMap = CoarseShipVisitsMaps[i];
-                foreach (var coarsePosition in coarseHaliteMap.AllPositions)
+                int maxCoarseHalite = int.MinValue;
+                var maxHaliteCoarsePosition = default(Position);
+                int maxCoarseHaliteIndex = 0;
+                int maxBaseOffset = 0;
+                Position maxDropoffAreaCenterPosition = default(Position);
+                var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
+                for (int i = 0; i < 2; i++)
                 {
-                    int halite = coarseHaliteMap[coarsePosition];
-                    if (halite <= maxCoarseHalite)
+                    int baseOffset = i * (CoarseCellSize / 2);
+                    var coarseHaliteMap = CoarseHaliteMaps[i];
+                    var coarseShipCountMap = CoarseShipVisitsMaps[i];
+                    foreach (var coarsePosition in coarseHaliteMap.AllPositions)
                     {
-                        continue;
-                    }
+                        int halite = coarseHaliteMap[coarsePosition];
+                        if (halite <= maxCoarseHalite)
+                        {
+                            continue;
+                        }
 
-                    bool hasShipBeenClose = false;
-                    coarseHaliteMap.GetDiscCells(coarsePosition, 1, coarseDisc);
-                    foreach (var coarseDiscPosition in coarseDisc)
-                    {
-                        hasShipBeenClose |= coarseShipCountMap[coarseDiscPosition];
-                    }
+                        bool hasShipBeenClose = false;
+                        coarseHaliteMap.GetDiscCells(coarsePosition, 1, coarseDisc);
+                        foreach (var coarseDiscPosition in coarseDisc)
+                        {
+                            hasShipBeenClose |= coarseShipCountMap[coarseDiscPosition];
+                        }
 
-                    if (!hasShipBeenClose)
-                    {
-                        continue;
-                    }
+                        if (!hasShipBeenClose)
+                        {
+                            continue;
+                        }
 
-                    int centerRow = HaliteMap.NormalizeNonNegativeRow((coarsePosition.Row * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
-                    int centerColumn = HaliteMap.NormalizeNonNegativeColumn((coarsePosition.Column * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
-                    var center = new Position(centerRow, centerColumn);
-                    if (IsTooCloseToDropoff(center))
-                    {
-                        continue;
-                    }
+                        int centerRow = HaliteMap.NormalizeNonNegativeRow((coarsePosition.Row * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
+                        int centerColumn = HaliteMap.NormalizeNonNegativeColumn((coarsePosition.Column * CoarseCellSize) + (CoarseCellSize / 2) + baseOffset);
+                        var center = new Position(centerRow, centerColumn);
+                        if (IsTooCloseToDropoff(center))
+                        {
+                            continue;
+                        }
 
-                    maxCoarseHalite = halite;
-                    maxHaliteCoarsePosition = coarsePosition;
-                    maxCoarseHaliteIndex = i;
-                    maxBaseOffset = baseOffset;
-                    maxDropoffAreaCenterPosition = center;
+                        maxCoarseHalite = halite;
+                        maxHaliteCoarsePosition = coarsePosition;
+                        maxCoarseHaliteIndex = i;
+                        maxBaseOffset = baseOffset;
+                        maxDropoffAreaCenterPosition = center;
+                    }
                 }
+
+                if (maxCoarseHalite <= 0)
+                {
+                    Logger.LogDebug("Expansion candidate count = " + BestDropoffAreaCandidates.Count);
+                    return;
+                }
+
+                var areaInfo = new DropoffAreaInfo()
+                {
+                    BaseOffset = maxBaseOffset,
+                    Index = maxCoarseHaliteIndex,
+                    CenterPosition = maxDropoffAreaCenterPosition,
+                    CoarsePosition = maxHaliteCoarsePosition
+                };
+
+                BestDropoffAreaCandidates.Add(areaInfo);
+                AllMyDropoffPositions.Add(areaInfo.CenterPosition);
             }
-
-            if (maxCoarseHalite <= 0)
-            {
-                return;
-            }
-
-            var areaInfo = new DropoffAreaInfo()
-            {
-                BaseOffset = maxBaseOffset,
-                Index = maxCoarseHaliteIndex,
-                CenterPosition = maxDropoffAreaCenterPosition,
-                CoarsePosition = maxHaliteCoarsePosition
-            };
-
-            BestDropoffAreaCandidates.Add(areaInfo);
         }
 
         private bool IsTooCloseToDropoff(Position position)

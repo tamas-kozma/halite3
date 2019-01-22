@@ -15,6 +15,7 @@
         public List<Position> PossibleNextPositions = new List<Position>();
         public bool IsOutOfFuel;
         public bool WasOutOfFuelLastTurn;
+        public int TrespassingTurnCount;
 
         public void ResetIntel()
         {

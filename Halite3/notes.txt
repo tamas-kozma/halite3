@@ -99,8 +99,8 @@
 ** For each harvester, if their jobs take a lot longer than the average so long, turn into outbound again
 * What's left
 ** OK Make the ship map in the expansion map permanent - if I was somewhere I can be there again
-** Make the halite max search in the expansion map also look at neighbours
-** Make the min/max distances in the expansion map configurable or depend on the map sizes
+** OK Make the halite max search in the expansion map also look at neighbours
+** OK? Make the min/max distances in the expansion map configurable or depend on the map sizes
 ** OK Implement lemmings
 ** OK Implement the simulator
 ** Make it possible to have planned dropoffs and adjust logic to take that into consideration
@@ -110,8 +110,9 @@
 ** Write GG when winning anyway
 ** Add a more precise inspired map for harvesters based on predicted opponent actions
 * What more is left
-** Fix that bug
+** OK Fix that bug
 ** Maybe make my ships more careful (more conservative intel collection)
-** Make a proper lemming map with opponent avoidance and use that also in the disease
-** Tune the macro engine, maybe in the direction less ships, more dropoffs
+** OK Make a proper lemming map with opponent avoidance and use that also in the disease
+** OK Tune the macro engine, maybe in the direction less ships, more dropoffs
 ** Lemming that run out of time should turn into interceptors
+** Fix that other bug

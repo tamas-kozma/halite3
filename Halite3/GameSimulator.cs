@@ -87,10 +87,11 @@
             int turn = TurnNumber;
             int visitedCellCount = 0;
             int effectiveTotalTurns = TotalTurns - (MaxDistance / 4);
+            int availableTurns = Math.Max(effectiveTotalTurns - TurnNumber, 0);
+            double remainingTimeRatio = availableTurns / (double)effectiveTotalTurns;
+            double harvestRatio = remainingTimeRatio * TuningSettings.SimulatorHarvestRatioMultiplier;
             if (turn < effectiveTotalTurns)
             {
-                double remainingTimeRatio = (effectiveTotalTurns - TurnNumber) / (double)effectiveTotalTurns;
-                double harvestRatio = remainingTimeRatio * TuningSettings.SimulatorHarvestRatioMultiplier;
                 double outboundStepTime = OutboundMap.GetBaseOutboundStepTime();
                 double cellCost = harvestRatio / GameConstants.ExtractRatio;
                 for (; turn < effectiveTotalTurns; turn++)
@@ -207,16 +208,23 @@
                 PlayerInfoMap[playerEvent.Player.Id].HaliteAdjustments += playerEvent.HaliteChange;
             }
 
-            int simulationTurnCount = turn - TurnNumber;
-            int remainingTurnCount = effectiveTotalTurns - turn;
             foreach (var playerInfo in PlayerInfoMap.Values)
             {
-                playerInfo.ShipTurnsLeft += remainingTurnCount * playerInfo.ShipCount;
+                double adjustedTurn = turn - (playerInfo.ShipTurnsLeft / playerInfo.ShipCount);
+                double remainingTurnCount = Math.Max(effectiveTotalTurns - adjustedTurn, 0);
+                playerInfo.ShipTurnsLeft = remainingTurnCount * playerInfo.ShipCount;
                 double totalShipTurns = playerInfo.ShipTurnsUsed + playerInfo.ShipTurnsLeft;
-                if (playerInfo.ShipTurnsUsed > 0)
+                //Logger.LogInfo("adjustedTurn=" + adjustedTurn + ", TurnNumber=" + TurnNumber + ", remainingTurnCount=" + remainingTurnCount + ", playerInfo.ShipTurnsLeft=" + playerInfo.ShipTurnsLeft);
+                //Logger.LogInfo("playerInfo.ShipTurnsUsed=" + playerInfo.ShipTurnsUsed + ", totalShipTurns=" + totalShipTurns + ", playerInfo.HaliteCollected=" + playerInfo.HaliteCollected + ", harvestRatio=" + harvestRatio);
+                if (playerInfo.ShipTurnsUsed > 0 && totalShipTurns > 0 && playerInfo.HaliteCollected > 0 && harvestRatio > 0)
                 {
                     double shipTurnRatio = totalShipTurns / playerInfo.ShipTurnsUsed;
-                    playerInfo.HaliteCollected = (int)Math.Round(playerInfo.HaliteCollected * shipTurnRatio);
+                    double originalHaliteAvailable = playerInfo.HaliteCollected * (1 / harvestRatio);
+                    double haliteRemaining = originalHaliteAvailable - playerInfo.HaliteCollected;
+                    double haliteRemainingAfterExtraHarvest = haliteRemaining * Math.Pow((1 - harvestRatio), shipTurnRatio - 1d);
+                    double extraHarvest = haliteRemaining - haliteRemainingAfterExtraHarvest;
+                    //Logger.LogInfo("harvested=" + playerInfo.HaliteCollected + ", harvestRatio=" + harvestRatio + ", turn=" + turn + ", effectiveTotalTurns" + effectiveTotalTurns + ", shipTurnRatio=" + shipTurnRatio + ", originalHaliteAvailable=" + originalHaliteAvailable + ", haliteRemainingAfterExtraHarvest=" + haliteRemainingAfterExtraHarvest + ", extraHarvest=" + extraHarvest);
+                    playerInfo.HaliteCollected += (int)extraHarvest;
                 }
             }
 

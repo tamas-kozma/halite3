@@ -10,7 +10,7 @@
     public sealed class Sotarto
     {
         private const string Name = "Sotarto";
-        private static readonly bool IsReleaseVersion = false;
+        private static readonly bool IsReleaseVersion = true;
 
         private readonly Logger logger;
         private readonly Random random;
@@ -144,7 +144,7 @@
 
             if (decision.BuildDropoff)
             {
-                expansionMap.CalculatePaths(decision.DropoffAreaInfo);
+                //PaintMap(expansionMap.Paths, "expansionMap" + TurnNumber.ToString().PadLeft(3, '0'));
 
                 if (builderList.Count == 0)
                 {
@@ -564,6 +564,7 @@
         {
             Debug.Assert(expansionMap.BestDropoffAreaCandidates.Count > 0);
 
+            logger.LogDebug("Builder " + ship + " heading towards " + ship.Destination + " to area " + macroEngine.BestDropoffArea?.CenterPosition + ".");
             if (GoAwayFromOpponentDropoffIfNeeded(ship))
             {
                 return;
@@ -572,6 +573,7 @@
             var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
             if (neighbourhoodInfo.BestValue == 0)
             {
+                logger.LogDebug("Builder " + ship + " finds no way forward and goes outbound.");
                 SetShipRole(ship, ShipRole.Outbound);
                 return;
             }
@@ -582,6 +584,7 @@
                 double bestBuilderValue = expansionMap.Paths[bestBuilder.Position];
                 if (bestBuilderValue > neighbourhoodInfo.BestValue)
                 {
+                    logger.LogDebug("Builder " + ship + " finds a better builder in " + bestBuilder + ".");
                     SetShipRole(ship, ShipRole.Outbound);
                     SetShipRole(bestBuilder, ShipRole.Builder);
                     return;
@@ -604,6 +607,7 @@
                     return;
                 }
 
+                logger.LogDebug("Builder " + ship + " blocked.");
                 AssignOrderToBlockedShip(ship, neighbourhoodInfo);
                 return;
             }
@@ -2141,8 +2145,16 @@
                     int shipMyDropoffdistance = myDistanceFromEstablishedDropoffMap[shipPosition];
                     if (shipMyDropoffdistance <= tuningSettings.MapOpponentShipInvisibilityRadius)
                     {
-                        logger.LogDebug(ship + " came too close (" + shipMyDropoffdistance + ") and thus became invisible.");
-                        continue;
+                        ship.TrespassingTurnCount++;
+                        if (ship.TrespassingTurnCount > tuningSettings.MapOpponentShipInvisibilityRadius * 2)
+                        {
+                            logger.LogDebug(ship + " came too close (" + shipMyDropoffdistance + ") for too long (" + ship.TrespassingTurnCount + ") and thus became invisible.");
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        ship.TrespassingTurnCount = 0;
                     }
 
                     logger.LogDebug("Opponent ship intel: " + ship.ToString());

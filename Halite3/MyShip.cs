@@ -40,7 +40,7 @@
 
         protected override string ToStringCore()
         {
-            return "OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + ", DTC=" + DetourTurnCount;
+            return base.ToStringCore() + ", OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + ", DTC=" + DetourTurnCount;
         }
     }
 }

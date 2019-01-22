@@ -96,8 +96,7 @@
 
         private ExpansionMap.DropoffAreaInfo FindBestDropoffLocation()
         {
-            GameSimulator.SimulationResult bestResult = null;
-            ExpansionMap.DropoffAreaInfo bestArea = null;
+            var candidatePairs = new List<ResultWithArea>(ExpansionMap.BestDropoffAreaCandidates.Count);
             foreach (var dropoffAreaInfoCandidate in ExpansionMap.BestDropoffAreaCandidates)
             {
                 if (!FindClosestShip(dropoffAreaInfoCandidate.CenterPosition, out var builder, out var builderDistance))
@@ -110,14 +109,43 @@
                 int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
                 var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfoCandidate.CenterPosition);
                 var currentResult = Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2);
-                if (bestResult == null || currentResult.IsBetterThan(bestResult))
+                var pair = new ResultWithArea() { Result = currentResult, Area = dropoffAreaInfoCandidate };
+                candidatePairs.Add(pair);
+            }
+
+            candidatePairs.Sort();
+            foreach (var pair in candidatePairs)
+            {
+                if (ExpansionMap.CalculatePaths(pair.Area))
                 {
-                    bestResult = currentResult;
-                    bestArea = dropoffAreaInfoCandidate;
+                    Logger.LogDebug("FindBestDropoffLocation chooses " + pair.Area.CenterPosition);
+                    return pair.Area;
                 }
             }
 
-            return bestArea;
+            return null;
+        }
+
+        private class ResultWithArea : IComparable<ResultWithArea>
+        {
+            public GameSimulator.SimulationResult Result;
+            public ExpansionMap.DropoffAreaInfo Area;
+
+            public int CompareTo(ResultWithArea other)
+            {
+                if (Result.IsBetterThan(other.Result))
+                {
+                    return -1;
+                }
+                else if (other.Result.IsBetterThan(Result))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
         }
 
         private bool FindClosestShip(Position dropoffPosition, out MyShip ship, out int distance)
