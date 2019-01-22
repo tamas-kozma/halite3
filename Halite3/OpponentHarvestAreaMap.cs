@@ -78,10 +78,10 @@
                 return;
             }
 
-            double baseBonusMultiplier = (GameConstants.InspiredBonusMultiplier - 1d) / 2d;
+            double baseBonusMultiplier = (GameConstants.InspiredBonusMultiplier - 1d) / 2d;//4d;
             int bonusRadius = GameConstants.InspirationRadius + TuningSettings.OpponentHarvestAreaMapHaliteBonusExtraRadius;
             var bonusDisc = new Position[mapCalculator.GetDiscArea(bonusRadius)];
-            double bonusMultiplierCap = GameConstants.InspiredBonusMultiplier;
+            double bonusMultiplierCap = GameConstants.InspiredBonusMultiplier;//((GameConstants.InspiredBonusMultiplier - 1d) / 2d) + 1d;
             foreach (var pair in HarvestAreaCenters)
             {
                 var scent = pair.Value;

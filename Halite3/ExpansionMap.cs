@@ -152,7 +152,7 @@
                 int maxCoarseHaliteIndex = 0;
                 int maxBaseOffset = 0;
                 Position maxDropoffAreaCenterPosition = default(Position);
-                var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(1)];
+                var coarseDisc = new Position[CoarseHaliteMaps[0].GetDiscArea(2)];
                 for (int i = 0; i < 2; i++)
                 {
                     int baseOffset = i * (CoarseCellSize / 2);
@@ -166,10 +166,15 @@
                             continue;
                         }
 
-                        bool hasShipBeenClose = false;
-                        coarseHaliteMap.GetDiscCells(coarsePosition, 1, coarseDisc);
+                        bool hasShipBeenClose = false;//coarseShipCountMap[coarsePosition];
+                        coarseHaliteMap.GetDiscCells(coarsePosition, 2, coarseDisc);
                         foreach (var coarseDiscPosition in coarseDisc)
                         {
+                            if (coarseHaliteMap.MaxSingleDimensionDistance(coarsePosition, coarseDiscPosition) == 2)
+                            {
+                                continue;
+                            }
+
                             hasShipBeenClose |= coarseShipCountMap[coarseDiscPosition];
                         }
 

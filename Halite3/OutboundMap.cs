@@ -17,12 +17,21 @@
         public bool IsEarlyGameMap { get; set; }
         public ReturnMap ReturnMap { get; set; }
         public DataMapLayer<int> AllOpponentDropoffDistanceMap;
+        public readonly MapSetKind MapSetKind;
 
         public static double[][] EstimatedHarvestTimes;
+        public double BaseOutboundStepTime;
+        public double AverageShipSurround;
 
         public DataMapLayer<double> DiscAverageLayer { get; private set; }
         public DataMapLayer<double> HarvestTimeMap { get; private set; }
         public DataMapLayer<double> OutboundPaths { get; private set; }
+        public DataMapLayer<double> JobTimeMap;
+
+        public OutboundMap(MapSetKind kind)
+        {
+            MapSetKind = kind;
+        }
 
         public void Calculate()
         {
@@ -82,13 +91,6 @@
             return bestTime;
         }
 
-        public static double GetBaseOutboundStepTime()
-        {
-            double outboundDistanceOnOneTank = GameConstants.ExtractRatio / GameConstants.MoveCostRatio;
-            double outboundPathFuelPenaltyMultiplier = (1d + outboundDistanceOnOneTank) / outboundDistanceOnOneTank;
-            return outboundPathFuelPenaltyMultiplier;
-        }
-
         private void CalculateOutboundPaths()
         {
             int mapWidth = HarvestTimeMap.Width;
@@ -98,10 +100,16 @@
             outboundPaths.Fill(double.MaxValue);
             var forbiddenCellsMap = ForbiddenCellsMap;
 
-            double baseOutboundStepTime = GetBaseOutboundStepTime();
+            double outboundDistanceOnOneTank = GameConstants.ExtractRatio / GameConstants.MoveCostRatio;
+            double outboundPathFuelPenaltyMultiplier = (1d + outboundDistanceOnOneTank) / outboundDistanceOnOneTank;
+
+            BaseOutboundStepTime = outboundPathFuelPenaltyMultiplier * (1d + AverageShipSurround);
+
+            JobTimeMap = new DataMapLayer<double>(mapWidth, mapHeight);
+            JobTimeMap.Fill(double.MaxValue);
             var harvestTimeMap = HarvestTimeMap;
             int estimatedMaxQueueSize = (int)(harvestTimeMap.CellCount * Math.Log(harvestTimeMap.CellCount));
-            var queue = new DoublePriorityQueue<PositionWithStepTime>(estimatedMaxQueueSize);
+            var queue = new DoublePriorityQueue<PositionInfo>(estimatedMaxQueueSize);
             var returnDistanceMap = ReturnMap.CellData;
             int skippedForbiddenCellCount = 0;
             foreach (var position in harvestTimeMap.AllPositions)
@@ -130,8 +138,10 @@
                 Debug.Assert(lostHaliteMultiplier >= 1d);
                 double harvestTime = baseHarvestTime * lostHaliteMultiplier;
                 double returnTime = returnMapCellInfo.Distance * lostHaliteMultiplier;
-                double outboundStepTime = baseOutboundStepTime * lostHaliteMultiplier;
-                queue.Enqueue(harvestTime + returnTime, new PositionWithStepTime(position, outboundStepTime));
+                double outboundStepTime = BaseOutboundStepTime * lostHaliteMultiplier;
+                double jobTime = harvestTime + returnTime;
+                JobTimeMap[position] = jobTime;
+                queue.Enqueue(jobTime, new PositionInfo(position, outboundStepTime, 0));
             }
 
             var mapBooster = MapBooster;
@@ -141,11 +151,12 @@
             int cellsAssigned = 0;
 
             int outboundMapDropoffAvoidanceRadius = TuningSettings.OutboundMapDropoffAvoidanceRadius;
+            int maxSpreadDistance = TuningSettings.OutboundMapMaxSpreadDistance;
             while (queue.Count > 0)
             {
                 double newTime = queue.PeekPriority();
-                var positionWithStepTime = queue.Dequeue();
-                var position = positionWithStepTime.Position;
+                var positionInfo = queue.Dequeue();
+                var position = positionInfo.Position;
                 double oldTime = outboundPaths[position];
                 if (newTime >= oldTime)
                 {
@@ -163,8 +174,9 @@
                     break;
                 }
 
-                double nextTime = newTime + positionWithStepTime.OutboundStepTime;
-                Debug.Assert(nextTime > 0 && positionWithStepTime.OutboundStepTime > 0, "nextTime=" + nextTime + ", positionWithStepTime.OutboundStepTime=" + positionWithStepTime.OutboundStepTime);
+                int nextDistance = positionInfo.Distance + 1;
+                double nextTime = newTime + positionInfo.OutboundStepTime;
+                Debug.Assert(nextTime > 0 && positionInfo.OutboundStepTime > 0, "nextTime=" + nextTime + ", positionWithStepTime.OutboundStepTime=" + positionInfo.OutboundStepTime);
                 var neighbourArray = mapBooster.GetNeighbours(position.Row, position.Column);
                 foreach (var neighbour in neighbourArray)
                 {
@@ -193,7 +205,7 @@
                         }
                     }
 
-                    queue.Enqueue(nextTime, new PositionWithStepTime(neighbour, positionWithStepTime.OutboundStepTime));
+                    queue.Enqueue(nextTime, new PositionInfo(neighbour, positionInfo.OutboundStepTime, nextDistance));
                 }
             }
 
@@ -259,7 +271,7 @@
                 double averageAtCell = discAverageLayer[position];
                 double weightedAverage = (valueAtCell >= averageAtCell)
                     ? (valueAtCell * centerWeight + averageAtCell) / centerWeightPlusOne
-                    : 0;
+                    : valueAtCell;
 
                 int intHalite = (int)weightedAverage;
                 harvestAreaMap[position] = estimatedHarvestTimesToUse[intHalite];
@@ -311,15 +323,17 @@
             //Logger.LogDebug(string.Join(",", EstimatedHarvestTimes));
         }
 
-        private struct PositionWithStepTime
+        private struct PositionInfo
         {
             public readonly Position Position;
             public readonly double OutboundStepTime;
+            public readonly int Distance;
 
-            public PositionWithStepTime(Position position, double outboundStepTime)
+            public PositionInfo(Position position, double outboundStepTime, int distance)
             {
                 Position = position;
                 OutboundStepTime = outboundStepTime;
+                Distance = distance;
             }
         }
     }

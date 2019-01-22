@@ -1,10 +1,5 @@
 ﻿namespace Halite3
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-
     public sealed class HarvestMap
     {
         public TuningSettings TuningSettings;
@@ -16,17 +11,47 @@
 
         public DataMapLayer<int> CurrentInspirerCountMap;
         public BitMapLayer CurrentInspirationMap;
+        public DataMapLayer<double> CurrentInspiredHaliteMap;
         public DataMapLayer<double> CurrentValues;
         public DataMapLayer<int> NextInspirerCountMap;
         public BitMapLayer NextInspirationMap;
         public DataMapLayer<double> NextValues;
+        public DataMapLayer<double> NextInspiredHaliteMap;
 
         public void Calculate()
         {
+            CalculateInspirationMaps();
+
+            CurrentInspiredHaliteMap = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
+            NextInspiredHaliteMap = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
+            foreach (var position in CurrentInspiredHaliteMap.AllPositions)
+            {
+                double halite = HaliteMap[position];
+                CurrentInspiredHaliteMap[position] = (CurrentInspirationMap[position]) ? halite * GameConstants.InspiredBonusMultiplier : halite;
+                NextInspiredHaliteMap[position] = (NextInspirationMap[position]) ? halite * GameConstants.InspiredBonusMultiplier : halite;
+            }
+
             CurrentValues = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
+            NextValues = new DataMapLayer<double>(MapBooster.MapWidth, MapBooster.MapHeight);
             foreach (var position in CurrentValues.AllPositions)
             {
+                double originHalite = CurrentInspiredHaliteMap[position];
+                double sumNeighbourhoodHalite = 0;
+                foreach (var neighbour in MapBooster.GetNeighbours(position))
+                {
+                    sumNeighbourhoodHalite += CurrentInspiredHaliteMap[neighbour];
+                }
 
+                CurrentValues[position] = (originHalite * 2d + sumNeighbourhoodHalite / 4d) / 3d;
+
+                originHalite = NextInspiredHaliteMap[position];
+                sumNeighbourhoodHalite = 0;
+                foreach (var neighbour in MapBooster.GetNeighbours(position))
+                {
+                    sumNeighbourhoodHalite += NextInspiredHaliteMap[neighbour];
+                }
+
+                NextValues[position] = (originHalite * 2d + sumNeighbourhoodHalite / 4d) / 3d;
             }
         }
 

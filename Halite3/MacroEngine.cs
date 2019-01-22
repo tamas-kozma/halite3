@@ -29,22 +29,25 @@
             var oneShipResult = RunSimulation("s");
             if (oneShipResult.IsBetterThan(normalResult))
             {
-                BestDropoffArea = FindBestDropoffLocation();
-                if (BestDropoffArea != null)
+                if (IsDropoffToBeConsidered())
                 {
-                    var multipleShipResult = RunSimulation("ssss");
-                    var dropoffResult = RunSimulation("d");
-
-                    if (dropoffResult.IsBetterThan(oneShipResult)
-                        && dropoffResult.IsBetterThan(multipleShipResult))
+                    BestDropoffArea = FindBestDropoffLocation();
+                    if (BestDropoffArea != null)
                     {
-                        DecisionSimulationResult = dropoffResult;
-                        return new Decision()
+                        var multipleShipResult = RunSimulation("ssss");
+                        var dropoffResult = RunSimulation("d");
+
+                        if (dropoffResult.IsBetterThan(oneShipResult)
+                            && dropoffResult.IsBetterThan(multipleShipResult))
                         {
-                            BuildDropoff = true,
-                            DropoffAreaInfo = BestDropoffArea,
-                            BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost)
-                        };
+                            DecisionSimulationResult = dropoffResult;
+                            return new Decision()
+                            {
+                                BuildDropoff = true,
+                                DropoffAreaInfo = BestDropoffArea,
+                                BuildShip = (MyPlayer.Halite >= GameConstants.ShipCost + GameConstants.DropoffCost)
+                            };
+                        }
                     }
                 }
             }
@@ -59,6 +62,29 @@
             {
                 BuildShip = true
             };
+        }
+
+        private bool IsDropoffToBeConsidered()
+        {
+            var harvesters = MyPlayer.MyShips
+               .Where(ship => ship.Role == ShipRole.Harvester);
+
+            var outbounds = MyPlayer.MyShips
+               .Where(ship => ship.Role == ShipRole.Outbound && ship.Destination.HasValue);
+
+            var allDistances = harvesters
+                .Select(ship => ship.DistanceFromDropoff)
+                .Concat(outbounds
+                    .Select(ship => ship.DistanceFromDestination + ship.DistanceFromDropoff))
+                .ToArray();
+
+            if (allDistances.Length == 0)
+            {
+                return false;
+            }
+
+            double averageWorkerOneWayTravelDistance = allDistances.Average();
+            return (averageWorkerOneWayTravelDistance > 7d);
         }
 
         private GameSimulator.SimulationResult RunSimulation(string events)
@@ -91,7 +117,7 @@
             }
 
             var result = Simulator.RunSimulation(TurnNumber, eventList.ToArray());
-            Logger.LogDebug("RunSimulation(" + events + "): " + result);
+            Logger.LogInfo("RunSimulation(" + events + "): " + result);
             return result;
         }
 
@@ -107,19 +133,19 @@
 
                 Debug.Assert(builder != null);
 
-                int workerDistance33Percentile = MyPlayer.MyShips
+                int workerDistancePercentile = MyPlayer.MyShips
                     .Select(ship => MapBooster.Distance(ship.Position, dropoffAreaInfoCandidate.CenterPosition))
                     .OrderBy(distance => distance)
-                    .Skip(MyPlayer.MyShips.Count / 3)
+                    .Skip(MyPlayer.MyShips.Count / 2)
                     .First();
 
                 var scheduler = new EventScheduler(this);
                 int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
                 int buildDelay = dropoffTurnNumber - TurnNumber;
-                int startupDelay = buildDelay + workerDistance33Percentile;
+                int startupDelay = buildDelay + workerDistancePercentile;
                 var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, startupDelay, dropoffAreaInfoCandidate.CenterPosition);
                 var currentResult = Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2);
-                var areaResult = new AreaResult() { Result = currentResult, Area = dropoffAreaInfoCandidate, WorkerDistanceStartupDelay = workerDistance33Percentile };
+                var areaResult = new AreaResult() { Result = currentResult, Area = dropoffAreaInfoCandidate, WorkerDistanceStartupDelay = workerDistancePercentile };
                 candidateAreaResults.Add(areaResult);
             }
 

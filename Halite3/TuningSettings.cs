@@ -22,17 +22,18 @@ namespace Halite3
         public double OutboundMapHarvestAreaCenterWeight { get; set; } = 2d;
         public int OutboundMapHarvestAreaSmoothingRadius { get; set; } = 2;
         public int OutboundMapDropoffAvoidanceRadius { get; set; } = 2;
+        public int OutboundMapMaxSpreadDistance { get; set; } = 6;
 
         public double OutboundShipToHarvesterConversionMinimumHaliteRatio { get; set; } = 1d;
         public int OutboundShipSwitchToOriginMapDistance { get; set; } = 2;
         public int OutboundShipAntiSquarePathMinDifference { get; set; } = 3;
 
-        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.42d;
-        public double HarvesterBlockedMoveThresholdHaliteRatio { get; set; } = 0.3d;
+        public double HarvesterMoveThresholdHaliteRatio { get; set; } = 0.35d;
+        public double HarvesterBlockedMoveThresholdHaliteRatio { get; set; } = 0.15d;
         public int HarvesterMinimumFillDefault { get; set; } = 950;
         public int HarvesterMinimumFillWhenBlockedByOpponent { get; set; } = 700;
         public int HarvesterMaximumFillForTurningOutbound { get; set; } = 650;
-        public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 2d;
+        public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 1.5d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.7d;
 
         public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;
@@ -46,7 +47,8 @@ namespace Halite3
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
         public int DetourTurnCount { get; set; } = 5;
         public double LemmingDropoffTurnCapacity { get; set; } = 3d;
-        public double SimulatorAssumedSunkShipRatio { get; set; } = 0.08d;
+        public double SimulatorAssumedSunkShipRatio { get; set; } = 0.02d;
+        public int ShipSurroundRadius { get; set; } = 5;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;

@@ -111,8 +111,9 @@
 ** Add a more precise inspired map for harvesters based on predicted opponent actions
 * What more is left
 ** OK Fix that bug
-** Maybe make my ships more careful (more conservative intel collection)
+** OK Maybe make my ships more careful (more conservative intel collection)
 ** OK Make a proper lemming map with opponent avoidance and use that also in the disease
 ** OK Tune the macro engine, maybe in the direction less ships, more dropoffs
-** Lemming that run out of time should turn into interceptors
+** Lemmings that run out of time should turn into interceptors
 ** OK Fix that other bug
+** Fix one more bug

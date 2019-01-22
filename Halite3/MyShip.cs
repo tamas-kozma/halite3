@@ -30,6 +30,9 @@
         public bool IsBuildingDropoff { get; set; }
         public double LemmingMapPathDistance { get; set; }
         public bool IsBlockedHarvesterTurnedDetourOutbound { get; set; }
+        public OutboundMap OutboundMap;
+        public OpponentShip InterceptorTarget;
+        public Position? InterceptorNextPosition;
 
         public void SetPosition(Position newPosition)
         {
@@ -41,7 +44,7 @@
 
         protected override string ToStringCore()
         {
-            return base.ToStringCore() + ", OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + ", DTC=" + DetourTurnCount;
+            return base.ToStringCore() + ", OP=" + OriginPosition + ", P=" + Position + ", PP=" + PreviousPosition + ", H=" + Halite + ", R=" + Role + ", HasA=" + HasActionAssigned + ", D=" + Destination + ", DD=" + DistanceFromDestination + ", DNP=" + DesiredNextPosition + ", B=" + BlockedTurnCount + ", FT=" + FugitiveForTurnCount + ", DTC=" + DetourTurnCount + ", INP=" + InterceptorNextPosition;
         }
     }
 }

@@ -15,6 +15,7 @@
         public MapBooster MapBooster;
         public int TotalTurns;
 
+        public OutboundMap OutboundMap;
         public int TurnNumber;
         public int MaxDistance;
         public Player[] AllPlayers;
@@ -93,7 +94,7 @@
             double aliveShipRatio = 1d - TuningSettings.SimulatorAssumedSunkShipRatio;
             if (turn < effectiveTotalTurns)
             {
-                double outboundStepTime = OutboundMap.GetBaseOutboundStepTime();
+                double outboundStepTime = OutboundMap.BaseOutboundStepTime;
                 double cellCost = harvestRatio / GameConstants.ExtractRatio;
                 for (; turn < effectiveTotalTurns; turn++)
                 {

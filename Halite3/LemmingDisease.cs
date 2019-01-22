@@ -104,7 +104,9 @@
 
         private static int GetSafeLemmingDistance(MyShip ship)
         {
-            return (ship.LemmingMapPathDistance != double.MaxValue) ? (int)ship.LemmingMapPathDistance : ship.DistanceFromDropoff;
+            return (ship.LemmingMapPathDistance != double.MaxValue)
+                ? (int)Math.Min(ship.LemmingMapPathDistance, ship.DistanceFromDropoff + 5)
+                : ship.DistanceFromDropoff;
         }
 
         private class ShipLemmingDistanceReverseComparer : IComparer<MyShip>
