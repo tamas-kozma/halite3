@@ -115,4 +115,4 @@
 ** OK Make a proper lemming map with opponent avoidance and use that also in the disease
 ** OK Tune the macro engine, maybe in the direction less ships, more dropoffs
 ** Lemming that run out of time should turn into interceptors
-** Fix that other bug
+** OK Fix that other bug

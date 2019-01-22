@@ -67,7 +67,7 @@
                     Vip = vip,
                     Blocker = blocker,
                     Position = neighbour,
-                    BlockerValue = blocker?.Map[neighbour] * blocker.MapDirection,
+                    BlockerValue = (blocker.Map != null) ? blocker.Map[neighbour] * blocker.MapDirection : (double?)null,
                     PredictedBlockerRole = PredictRoleNextTurn(blocker),
                     HighestPriorityDesirer = highestPriorityDesirer
                 };
