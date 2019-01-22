@@ -29,6 +29,7 @@
         public int DetourTurnCount { get; set; }
         public bool IsBuildingDropoff { get; set; }
         public double LemmingMapPathDistance { get; set; }
+        public bool IsBlockedHarvesterTurnedDetourOutbound { get; set; }
 
         public void SetPosition(Position newPosition)
         {

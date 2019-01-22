@@ -10,7 +10,7 @@
     public sealed class Sotarto
     {
         private const string Name = "Sotarto";
-        private static readonly bool IsReleaseVersion = true;
+        private static readonly bool IsReleaseVersion = false;
 
         private readonly Logger logger;
         private readonly Random random;
@@ -176,6 +176,7 @@
                 ship.IsBlockedHarvesterTryingHarder = false;
                 ship.IsBlockedOutboundTurnedHarvester = false;
                 ship.HasFoundTooLittleHaliteToHarvestThisTurn = false;
+                ship.IsBlockedHarvesterTurnedDetourOutbound = false;
 
                 if (myPlayer.TotalReturnedHalite == 0
                     && ship.Position == myPlayer.ShipyardPosition
@@ -945,14 +946,24 @@
                         return;
                     }
 
+                    if (!ship.IsBlockedHarvesterTurnedDetourOutbound)
+                    {
+                        ship.IsBlockedHarvesterTurnedDetourOutbound = true;
+                        SetShipRole(ship, ShipRole.Outbound);
+                        ship.DetourTurnCount = tuningSettings.DetourTurnCount;
+                        return;
+                    }
+
+                    /*
                     // No opponent ship is currently there.
                     // If it is there, but predicted to be moving away, then the spot will not be forbidden.
                     if (GetFromAllOpponentShipMap(desiredNeighbour) == null)
                     {
                         // Geronimo!
+                        logger.LogInfo("Geronimo!");
                         ProcessShipOrder(ship, desiredNeighbour, false);
                         return;
-                    }
+                    }*/
                 }
                 else
                 {
@@ -1975,7 +1986,7 @@
                     }
 
                     if (!ship.AssumedRole.HasValue
-                        && (ship.Halite < tuningSettings.OpponentShipLikelyInboundMinHalite
+                        && (ship.Halite < tuningSettings.OpponentShipLikelyHarvesterMaxHalite
                             && ship.PreviousPosition == ship.Position
                             && !ship.WasOutOfFuelLastTurn
                             && couldMoveAwayFromDropoff))
@@ -1992,7 +2003,7 @@
 
                     if (!ship.AssumedRole.HasValue
                         && (ship.Halite >= tuningSettings.OpponentShipLikelyHarvesterMinHalite
-                            && ship.Halite <= tuningSettings.OpponentShipLikelyInboundMinHalite))
+                            && ship.Halite <= tuningSettings.OpponentShipLikelyHarvesterMaxHalite))
                     {
                         ship.AssumedRole = ShipRole.Harvester;
                     }

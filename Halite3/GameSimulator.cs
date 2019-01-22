@@ -90,6 +90,7 @@
             int availableTurns = Math.Max(effectiveTotalTurns - TurnNumber, 0);
             double remainingTimeRatio = availableTurns / (double)effectiveTotalTurns;
             double harvestRatio = remainingTimeRatio * TuningSettings.SimulatorHarvestRatioMultiplier;
+            double aliveShipRatio = 1d - TuningSettings.SimulatorAssumedSunkShipRatio;
             if (turn < effectiveTotalTurns)
             {
                 double outboundStepTime = OutboundMap.GetBaseOutboundStepTime();
@@ -119,7 +120,7 @@
 
                     foreach (var playerInfo in PlayerInfoMap.Values)
                     {
-                        playerInfo.ShipTurnsLeft += playerInfo.ShipCount;
+                        playerInfo.ShipTurnsLeft += playerInfo.GetTurnlyAllowance(aliveShipRatio);
                     }
 
                     bool someoneHarvested = true;
@@ -210,9 +211,10 @@
 
             foreach (var playerInfo in PlayerInfoMap.Values)
             {
-                double adjustedTurn = turn - (playerInfo.ShipTurnsLeft / playerInfo.ShipCount);
+                double turnlyAllowance = playerInfo.GetTurnlyAllowance(aliveShipRatio);
+                double adjustedTurn = turn - (playerInfo.ShipTurnsLeft / turnlyAllowance);
                 double remainingTurnCount = Math.Max(effectiveTotalTurns - adjustedTurn, 0);
-                playerInfo.ShipTurnsLeft = remainingTurnCount * playerInfo.ShipCount;
+                playerInfo.ShipTurnsLeft = remainingTurnCount * turnlyAllowance;
                 double totalShipTurns = playerInfo.ShipTurnsUsed + playerInfo.ShipTurnsLeft;
                 //Logger.LogInfo("adjustedTurn=" + adjustedTurn + ", TurnNumber=" + TurnNumber + ", remainingTurnCount=" + remainingTurnCount + ", playerInfo.ShipTurnsLeft=" + playerInfo.ShipTurnsLeft);
                 //Logger.LogInfo("playerInfo.ShipTurnsUsed=" + playerInfo.ShipTurnsUsed + ", totalShipTurns=" + totalShipTurns + ", playerInfo.HaliteCollected=" + playerInfo.HaliteCollected + ", harvestRatio=" + harvestRatio);
@@ -392,6 +394,11 @@
             public int CurrentIndex;
             public int HarvestedCellCount;
             public double ShipTurnsUsed;
+
+            public double GetTurnlyAllowance(double aliveShipRatio)
+            {
+                return ShipCount * aliveShipRatio;
+            }
 
             public PlayerInfo(GameSimulator simulator, Player player)
             {

@@ -17,6 +17,7 @@
         public Action<BitMapLayer, string> PaintMap;
 
         public ExpansionMap.DropoffAreaInfo BestDropoffArea;
+        public int BestDropoffCandidateWorkerDistanceStartupDelay;
         public int TurnNumber;
         public GameSimulator.SimulationResult DecisionSimulationResult;
 
@@ -78,8 +79,8 @@
                         bool builderFound = FindClosestShip(BestDropoffArea.CenterPosition, out var builder, out var builderDistance);
                         Debug.Assert(builderFound);
                         int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance, true);
-                        int baseStartupDelay = (int)(TuningSettings.MacroEngineDropoffStartupDelayMaxDistanceMultiplier * Simulator.MaxDistance);
-                        int startupDelay = (dropoffTurnNumber - builderDispatchTurn) + baseStartupDelay;
+                        int buildDelay = dropoffTurnNumber - builderDispatchTurn;
+                        int startupDelay = buildDelay + BestDropoffCandidateWorkerDistanceStartupDelay;
                         var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(builderDispatchTurn, startupDelay, BestDropoffArea.CenterPosition);
                         eventList.Add(dropoffEventPair.Item1);
                         eventList.Add(dropoffEventPair.Item2);
@@ -96,7 +97,7 @@
 
         private ExpansionMap.DropoffAreaInfo FindBestDropoffLocation()
         {
-            var candidatePairs = new List<ResultWithArea>(ExpansionMap.BestDropoffAreaCandidates.Count);
+            var candidateAreaResults = new List<AreaResult>(ExpansionMap.BestDropoffAreaCandidates.Count);
             foreach (var dropoffAreaInfoCandidate in ExpansionMap.BestDropoffAreaCandidates)
             {
                 if (!FindClosestShip(dropoffAreaInfoCandidate.CenterPosition, out var builder, out var builderDistance))
@@ -105,16 +106,25 @@
                 }
 
                 Debug.Assert(builder != null);
+
+                int workerDistance33Percentile = MyPlayer.MyShips
+                    .Select(ship => MapBooster.Distance(ship.Position, dropoffAreaInfoCandidate.CenterPosition))
+                    .OrderBy(distance => distance)
+                    .Skip(MyPlayer.MyShips.Count / 3)
+                    .First();
+
                 var scheduler = new EventScheduler(this);
                 int dropoffTurnNumber = scheduler.GetDropoffTurnNumber(builderDistance);
-                var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, dropoffTurnNumber - TurnNumber, dropoffAreaInfoCandidate.CenterPosition);
+                int buildDelay = dropoffTurnNumber - TurnNumber;
+                int startupDelay = buildDelay + workerDistance33Percentile;
+                var dropoffEventPair = Simulator.GetMyPlayerBuildDropoffEvent(TurnNumber, startupDelay, dropoffAreaInfoCandidate.CenterPosition);
                 var currentResult = Simulator.RunSimulation(TurnNumber, dropoffEventPair.Item1, dropoffEventPair.Item2);
-                var pair = new ResultWithArea() { Result = currentResult, Area = dropoffAreaInfoCandidate };
-                candidatePairs.Add(pair);
+                var areaResult = new AreaResult() { Result = currentResult, Area = dropoffAreaInfoCandidate, WorkerDistanceStartupDelay = workerDistance33Percentile };
+                candidateAreaResults.Add(areaResult);
             }
 
-            candidatePairs.Sort();
-            foreach (var pair in candidatePairs)
+            candidateAreaResults.Sort();
+            foreach (var pair in candidateAreaResults)
             {
                 if (ExpansionMap.CalculatePaths(pair.Area))
                 {
@@ -126,12 +136,13 @@
             return null;
         }
 
-        private class ResultWithArea : IComparable<ResultWithArea>
+        private class AreaResult : IComparable<AreaResult>
         {
-            public GameSimulator.SimulationResult Result;
             public ExpansionMap.DropoffAreaInfo Area;
+            public int WorkerDistanceStartupDelay;
+            public GameSimulator.SimulationResult Result;
 
-            public int CompareTo(ResultWithArea other)
+            public int CompareTo(AreaResult other)
             {
                 if (Result.IsBetterThan(other.Result))
                 {

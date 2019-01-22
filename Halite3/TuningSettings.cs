@@ -8,10 +8,11 @@ namespace Halite3
         public int MapOpponentDropoffNoGoZoneRadius { get; set; } = 3;
         public int MapOpponentShipInvisibilityMinDropoffAge { get; set; } = 10;
 
-        public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 150;
+        public int OpponentShipLikelyHarvesterMinHalite { get; set; } = 251;
+        public int OpponentShipLikelyHarvesterMaxHalite { get; set; } = 750;
         public int OpponentShipCertainlyInboundMinHalite { get; set; } = 990;
         public int OpponentShipLikelyInboundMinHalite { get; set; } = 900;
-        public double OpponentHarvesterMoveThresholdHaliteRatio { get; set; } = 0.5d;
+        public double OpponentHarvesterMoveThresholdHaliteRatio { get; set; } = 0.55d;
 
         public double ReturnPathDistancePenaltyMultiplier { get; set; } = 0.5d;
 
@@ -45,12 +46,12 @@ namespace Halite3
         public bool IsTwoPlayerAggressiveModeEnabled { get; set; } = false;
         public int DetourTurnCount { get; set; } = 5;
         public double LemmingDropoffTurnCapacity { get; set; } = 3d;
+        public double SimulatorAssumedSunkShipRatio { get; set; } = 0.08d;
 
         public int OpponentHarvestAreaMapMaxScentStrength { get; set; } = 20;
         public int OpponentHarvestAreaMapHaliteBonusExtraRadius { get; set; } = 0;
 
         public double SimulatorHarvestRatioMultiplier { get; set; } = 1d;
-        public double MacroEngineDropoffStartupDelayMaxDistanceMultiplier { get; set; } = 0.16d;
 
         private int earlyGameShipMinReturnedHalite = -1;
 
