@@ -57,6 +57,13 @@
                         {
                             return aspectComparisonResult;
                         }
+
+                        int xMaxDimensionDistance = dummyMap.MaxSingleDimensionDistance(x.OriginPosition, x.Destination.Value);
+                        int yMaxDimensionDistance = dummyMap.MaxSingleDimensionDistance(y.OriginPosition, y.Destination.Value);
+                        if (xMaxDimensionDistance != yMaxDimensionDistance)
+                        {
+                            return yMaxDimensionDistance - xMaxDimensionDistance;
+                        }
                     }
                 }
             }

@@ -66,7 +66,7 @@
         private DataMapLayer<int> allOpponentDropoffDistanceMap;
         private MyShip shipCurrentlyBeingAssignedAnOrder;
         private LemmingDisease lemmingDisease;
-        private DataMapLayer<double> doubleDropoffDistanceMap;
+        private LemmingMap lemmingMap;
 
         public Sotarto(Logger logger, Random random, HaliteEngineInterface haliteEngineInterface, TuningSettings tuningSettings)
         {
@@ -399,7 +399,7 @@
                     break;
 
                 case ShipRole.Lemming:
-                    ship.Map = GetLemmingMap();
+                    ship.Map = GetLemmingMap().Paths;
                     ship.MapDirection = -1;
                     break;
 
@@ -538,19 +538,19 @@
 
             bool IsBetter(Position position1, Position position2)
             {
-                int lemmingCount1 = CountLemmingsAround(position1);
-                int lemmingCount2 = CountLemmingsAround(position2);
-                return lemmingCount1 < lemmingCount2;
+                int shipCount1 = CountShipsAround(position1);
+                int shipCount2 = CountShipsAround(position2);
+                return shipCount1 < shipCount2;
             }
 
-            int CountLemmingsAround(Position position)
+            int CountShipsAround(Position position)
             {
                 shipMap.GetDiscCells(position, 2, disc);
                 int lemmingCount = 0;
                 foreach (var discPosition in disc)
                 {
                     var shipAtPosition = shipMap[discPosition];
-                    if (shipAtPosition != null && shipAtPosition.Role == ShipRole.Lemming)
+                    if (shipAtPosition != null)
                     {
                         lemmingCount++;
                     }
@@ -901,6 +901,9 @@
                     ProcessShipOrder(ship, neighbour, false);
                     return;
                 }
+
+                ProcessShipOrder(ship, ship.OriginPosition, false);
+                return;
             }
 
             var desiredNeighbour = neighbourhoodInfo.BestPosition;
@@ -1374,7 +1377,8 @@
                 MyPlayer = myPlayer,
                 SetShipRole = SetShipRole,
                 TotalTurns = totalTurnCount,
-                TuningSettings = tuningSettings
+                TuningSettings = tuningSettings,
+                GetLemmingMap = GetLemmingMap
             };
 
             lemmingDisease.Initialize();
@@ -1402,7 +1406,7 @@
             originDetourReturnMap = GetReturnMap(MapSetKind.Detour);
             originDetourAdjustedHaliteMap = GetAdjustedHaliteMap(MapSetKind.Detour);
             originDetourOutboundMap = GetOutboundMap(MapSetKind.Detour);
-            doubleDropoffDistanceMap = null;
+            lemmingMap = null;
 
             /*PaintMap(expansionMap.CoarseHaliteMaps[0], "chm1" + TurnNumber.ToString().PadLeft(3, '0'));
             PaintMap(expansionMap.CoarseHaliteMaps[1], "chm2" + TurnNumber.ToString().PadLeft(3, '0'));
@@ -1535,7 +1539,7 @@
 
             if (ship.DistanceFromDropoff >= lemmingDisease.FrontDistance - 1)
             {
-                var lemmingMap = GetLemmingMap();
+                var lemmingMap = GetLemmingMap().Paths;
                 double originPathValue = lemmingMap[ship.OriginPosition];
                 double candidatePathValue = lemmingMap[position];
                 if (candidatePathValue > originPathValue)
@@ -1848,19 +1852,23 @@
             return mapStorage;
         }
 
-        private DataMapLayer<double> GetLemmingMap()
+        private LemmingMap GetLemmingMap()
         {
-            if (doubleDropoffDistanceMap == null)
+            if (lemmingMap == null)
             {
-                var distanceMap = myPlayer.DistanceFromDropoffMap;
-                doubleDropoffDistanceMap = new DataMapLayer<double>(mapWidth, mapHeight);
-                foreach (var position in distanceMap.AllPositions)
+                lemmingMap = new LemmingMap()
                 {
-                    doubleDropoffDistanceMap[position] = distanceMap[position];
-                }
+                    ForbiddenCellsMap = originForbiddenCellsMap,
+                    Logger = logger,
+                    MapBooster = mapBooster,
+                    MyPlayer = myPlayer,
+                    TuningSettings = tuningSettings
+                };
+
+                lemmingMap.Calculate();
             }
 
-            return doubleDropoffDistanceMap;
+            return lemmingMap;
         }
 
         private void UpdateHaliteMap(TurnMessage turnMessage)

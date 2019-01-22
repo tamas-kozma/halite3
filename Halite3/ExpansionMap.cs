@@ -16,7 +16,8 @@
         public MapBooster MapBooster;
         public BitMapLayer ForbiddenCellsMap;
 
-        public Position[] AllDropoffPositions;
+        public Position[] AllOpponentDropoffPositions;
+        public Position[] AllMyDropoffPositions;
         public DataMapLayer<int>[] CoarseHaliteMaps;
         public BitMapLayer[] CoarseShipVisitsMaps;
         public DataMapLayer<double> Paths;
@@ -111,10 +112,8 @@
 
         private void CalculateCandidates()
         {
-            AllDropoffPositions = MyPlayer.Dropoffs
-               .Concat(Opponents.SelectMany(opponent => opponent.Dropoffs))
-               .Select(dropoff => dropoff.Position)
-               .ToArray();
+            AllMyDropoffPositions = MyPlayer.Dropoffs.Select(dropoff => dropoff.Position).ToArray();
+            AllOpponentDropoffPositions = Opponents.SelectMany(opponent => opponent.Dropoffs).Select(dropoff => dropoff.Position).ToArray();
 
             int maxCoarseHalite = int.MinValue;
             var maxHaliteCoarsePosition = default(Position);
@@ -181,10 +180,19 @@
 
         private bool IsTooCloseToDropoff(Position position)
         {
-            foreach (var dropoffPosition in AllDropoffPositions)
+            foreach (var dropoffPosition in AllMyDropoffPositions)
             {
                 int distance = MapBooster.Distance(dropoffPosition, position);
-                if (distance < CoarseCellSize * 2)
+                if (distance < 12)
+                {
+                    return true;
+                }
+            }
+
+            foreach (var dropoffPosition in AllOpponentDropoffPositions)
+            {
+                int distance = MapBooster.Distance(dropoffPosition, position);
+                if (distance < 8)
                 {
                     return true;
                 }
@@ -238,6 +246,27 @@
                     }
 
                     coarseHaliteMap[coarsePosition] = sumHalite;
+                }
+            }
+
+            var neighbours = new Position[4];
+            for (int i = 0; i < 2; i++)
+            {
+                int baseOffset = i * (CoarseCellSize / 2);
+                var coarseHaliteMap = CoarseHaliteMaps[i];
+                var coarseHaliteMapCopy = new DataMapLayer<int>(coarseHaliteMap);
+                foreach (var coarsePosition in coarseHaliteMapCopy.AllPositions)
+                {
+                    int sumNeighbourHalite = 0;
+                    coarseHaliteMapCopy.GetNeighbours(coarsePosition, neighbours);
+                    foreach (var coarseNeighbour in neighbours)
+                    {
+                        sumNeighbourHalite += coarseHaliteMapCopy[coarseNeighbour];
+                    }
+
+                    int originHalite = coarseHaliteMap[coarsePosition];
+                    int averageHalite = (sumNeighbourHalite / 4 + originHalite) / 2;
+                    coarseHaliteMap[coarsePosition] = averageHalite;
                 }
             }
         }

@@ -12,7 +12,9 @@
         public MyPlayer MyPlayer;
         public int TotalTurns;
         public Action<MyShip, ShipRole> SetShipRole;
+        public Func<LemmingMap> GetLemmingMap;
 
+        public LemmingMap LemmingMap;
         public int TurnNumber;
         public List<MyShip> ShipsSorted;
         public int FrontDistance;
@@ -26,22 +28,30 @@
         {
             TurnNumber = turnNumber;
             int turnsRemaining = TotalTurns - TurnNumber;
+            LemmingMap = GetLemmingMap();
+            var lemmingPaths = LemmingMap.Paths;
 
             ShipsSorted.Clear();
             ShipsSorted.AddRange(MyPlayer.MyShips);
-            ShipsSorted.Sort(ShipDistanceFromDropoffReverseComparer.Default);
+            foreach (var ship in ShipsSorted)
+            {
+                ship.LemmingMapPathDistance = lemmingPaths[ship.OriginPosition];
+            }
+
+            ShipsSorted.Sort(ShipLemmingDistanceReverseComparer.Default);
 
             FrontDistance = int.MaxValue;
-            double lemmingDropoffTurnCapacity = TuningSettings.LemmingDropoffTurnCapacity * MyPlayer.Dropoffs.Count;
+            int effectiveDropoffCount = Math.Max(1, MyPlayer.Dropoffs.Count - 1);
+            double lemmingDropoffTurnCapacity = TuningSettings.LemmingDropoffTurnCapacity * effectiveDropoffCount;
             int index = 0;
             int outerShipCount = 0;
             while (index < ShipsSorted.Count)
             {
                 var currentShip = ShipsSorted[index];
-                int distance = currentShip.DistanceFromDropoff;
+                int distance = GetSafeLemmingDistance(currentShip);
                 int startIndex = index;
                 int immuneCountAtDistance = 0;
-                while (index < ShipsSorted.Count && currentShip.DistanceFromDropoff == distance)
+                while (index < ShipsSorted.Count && GetSafeLemmingDistance(currentShip) == distance)
                 {
                     if (IsImmune(currentShip))
                     {
@@ -92,13 +102,20 @@
             return (ship.Role.IsHigherPriorityThan(ShipRole.Lemming) || ship.Role == ShipRole.Interceptor);
         }
 
-        private class ShipDistanceFromDropoffReverseComparer : IComparer<Ship>
+        private static int GetSafeLemmingDistance(MyShip ship)
         {
-            public static readonly ShipDistanceFromDropoffReverseComparer Default = new ShipDistanceFromDropoffReverseComparer();
+            return (ship.LemmingMapPathDistance != double.MaxValue) ? (int)ship.LemmingMapPathDistance : ship.DistanceFromDropoff;
+        }
 
-            public int Compare(Ship x, Ship y)
+        private class ShipLemmingDistanceReverseComparer : IComparer<MyShip>
+        {
+            public static readonly ShipLemmingDistanceReverseComparer Default = new ShipLemmingDistanceReverseComparer();
+
+            public int Compare(MyShip x, MyShip y)
             {
-                return y.DistanceFromDropoff - x.DistanceFromDropoff;
+                int xDistance = GetSafeLemmingDistance(x);
+                int yDistance = GetSafeLemmingDistance(y);
+                return Math.Sign(yDistance - xDistance);
             }
         }
     }
