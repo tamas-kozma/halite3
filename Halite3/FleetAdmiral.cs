@@ -16,6 +16,7 @@
         public Action<MyShip, ShipRole> SetShipRole;
         public MacroEngine MacroEngine;
         public BitMapLayer ForbiddenCellsMap;
+        public Action<DataMapLayer<int>, string> PaintMap;
 
         public int TurnNumber;
 
@@ -27,7 +28,7 @@
         public void Initialize()
         {
             MaxDistance = (MapBooster.MapWidth + MapBooster.MapHeight) / 2;
-            ActiveDuration = (int)Math.Round(MaxDistance * 0.75d);
+            ActiveDuration = (int)Math.Round(MaxDistance * 0.85d);
             Interceptors = new List<MyShip>(MyPlayer.MyShips.Count);
         }
 
@@ -51,12 +52,12 @@
                 double haliteRatio = simulationResult.MyPlayerResult.Halite / secondResult.Halite;
                 if (haliteRatio > 1.25)
                 {
-                    Logger.LogInfo("FleetAdmiral: I'm standing too well to launch interceptors (" + simulationResult.MyPlayerResult + ").");
+                    Logger.LogDebug("FleetAdmiral: I'm standing too well to launch interceptors (" + simulationResult.MyPlayerResult + ").");
                     return;
                 }
             }
 
-            Logger.LogInfo("FleetAdmiral: Launching attack (" + simulationResult.MyPlayerResult + " vs " + simulationResult.WinnerPlayerResult + ")");
+            Logger.LogDebug("FleetAdmiral: Launching attack (" + simulationResult.MyPlayerResult + " vs " + simulationResult.WinnerPlayerResult + ")");
 
             var opponentsSorted = simulationResult.PlayerResultMap.Values
                 .Where(result => result.Player != MyPlayer)
@@ -68,10 +69,10 @@
             var targetsSorted = opponentsSorted
                 .SelectMany(opponent => opponent.OpponentShips
                     .OrderByDescending(ship => ship.Halite))
-                .Where(ship => ship.Halite > 250)
+                .Where(ship => ship.Halite > 250 && ship.Owner.DistanceFromDropoffMap[ship.Position] > 2)
                 .ToList();
 
-            Logger.LogInfo("FleetAdmiral: Targets: " + string.Join(Environment.NewLine, targetsSorted));
+            Logger.LogDebug("FleetAdmiral: Targets: " + string.Join(Environment.NewLine, targetsSorted));
             Interceptors.Clear();
             foreach (var ship in MyPlayer.MyShips)
             {
@@ -88,6 +89,7 @@
                 Interceptors.Add(ship);
             }
 
+            var dummyDisc = new Position[MapBooster.Calculator.GetDiscArea(2)];
             foreach (var target in targetsSorted)
             {
                 int minDistance = int.MaxValue;
@@ -113,11 +115,36 @@
                 }
 
                 closestShip.InterceptorTarget = target;
-                closestShip.Destination = target.ExpectedNextPosition ?? target.Position;
-                closestShip.DistanceFromDestination = minDistance;
+                var targetLocation = target.ExpectedNextPosition ?? target.Position;
+                int bestDropoffDistance = int.MaxValue;
+                Position bestPosition = default(Position);
+                MapBooster.Calculator.GetDiscCells(targetLocation, 2, dummyDisc);
+                foreach (var discPosition in dummyDisc)
+                {
+                    if (MapBooster.Calculator.MaxSingleDimensionDistance(discPosition, targetLocation) == 1)
+                    {
+                        int dropoffDistance = target.Owner.DistanceFromDropoffMap[discPosition];
+                        if (dropoffDistance < bestDropoffDistance)
+                        {
+                            bestDropoffDistance = dropoffDistance;
+                            bestPosition = discPosition;
+                        }
+                    }
+                }
+
+                if (bestDropoffDistance != 0)
+                {
+                    closestShip.Destination = bestPosition;
+                }
+                else
+                {
+                    closestShip.Destination = targetLocation;
+                }
+
+                closestShip.DistanceFromDestination = MapBooster.Distance(closestShip.Destination.Value, closestShip.Position);
             }
 
-            Logger.LogInfo("FleetAdmiral: Interceptors: " + string.Join(Environment.NewLine, Interceptors));
+            Logger.LogDebug("FleetAdmiral: Interceptors: " + string.Join(Environment.NewLine, Interceptors));
 
             var queue = new DoublePriorityQueue<Position>();
             var travelDistanceMap = new DataMapLayer<int>(MapBooster.MapWidth, MapBooster.MapHeight);
@@ -127,7 +154,7 @@
                 var target = ship.InterceptorTarget;
                 if (target == null)
                 {
-                    Logger.LogInfo("FleetAdmiral: No target for " + ship + ", turning into harvester.");
+                    Logger.LogDebug("FleetAdmiral: No target for " + ship + ", turning into harvester.");
                     SetShipRole(ship, ShipRole.Harvester);
                     Interceptors.RemoveAt(i);
                     i--;
@@ -135,33 +162,50 @@
                 }
 
                 Debug.Assert(ship.Destination.HasValue);
+                var destination = ship.Destination.Value;
                 ship.InterceptorNextPosition = null;
+                int bestAntiStuff = int.MaxValue;
+                int bestDistance = int.MaxValue;
+                var bestPosition = default(Position);
                 foreach (var position in MapBooster.GetNeighbours(ship.OriginPosition))
                 {
-                    int distance = MapBooster.Distance(position, target.Position);
-                    if (distance >= ship.DistanceFromDestination
-                        || ForbiddenCellsMap[position])
+                    int distance = MapBooster.Distance(position, destination);
+                    if (MyPlayer.MyShipMap[position] != null)
                     {
                         continue;
                     }
 
-                    Logger.LogInfo("FleetAdmiral: " + ship + " targeting " + target + " easily found next position in " + position + ".");
-                    ship.InterceptorNextPosition = position;
-                    break;
+                    if (distance > bestDistance)
+                    {
+                        continue;
+                    }
+
+                    int antiStuff = MapBooster.Calculator.MaxSingleDimensionDistance(position, destination);
+                    if (distance < bestDistance || antiStuff < bestAntiStuff)
+                    {
+                        bestDistance = distance;
+                        bestPosition = position;
+                        bestAntiStuff = antiStuff;
+                    }
+                }
+
+                if (bestDistance != int.MaxValue)
+                {
+                    ship.InterceptorNextPosition = bestPosition;
+                    Logger.LogDebug("FleetAdmiral: " + ship + " targeting " + target + " easily found next position in " + bestPosition + ".");
                 }
 
                 if (!ship.InterceptorNextPosition.HasValue)
                 {
-                    Logger.LogInfo("FleetAdmiral: " + ship + " targeting " + target + " must look hard for a path.");
+                    Logger.LogDebug("FleetAdmiral: " + ship + " targeting " + target + " must look hard for a path.");
                     bool pathFound = false;
                     int cellsVisited = 0;
                     int maxCellsToVisit = ship.DistanceFromDestination * 10;
                     queue.Clear();
                     travelDistanceMap.Fill(int.MaxValue);
 
-                    travelDistanceMap[target.Position] = 0;
-                    queue.Enqueue(0, target.Position);
-
+                    travelDistanceMap[destination] = 0;
+                    queue.Enqueue(0, destination);
                     while (queue.Count > 0)
                     {
                         cellsVisited++;
@@ -183,8 +227,12 @@
                                 break;
                             }
 
-                            if (travelDistanceMap[neighbour] <= neighbourTravelDistance 
-                                || ForbiddenCellsMap[neighbour])
+                            if (travelDistanceMap[neighbour] <= neighbourTravelDistance)
+                            {
+                                continue;
+                            }
+
+                            if (ForbiddenCellsMap[neighbour] && flightDistance > 1)
                             {
                                 continue;
                             }
@@ -196,14 +244,15 @@
 
                         if (pathFound)
                         {
-                            Logger.LogInfo("FleetAdmiral: " + ship + " targeting " + target + " found path.");
+                            Logger.LogDebug("FleetAdmiral: " + ship + " targeting " + target + " found path.");
                             break;
                         }
                     }
 
+                    //PaintMap(travelDistanceMap, "travelDistanceMap" + TurnNumber.ToString().PadLeft(3, '0') + "_" + ship.Id);
                     if (!ship.InterceptorNextPosition.HasValue)
                     {
-                        Logger.LogInfo("FleetAdmiral: " + ship + " targeting " + target + " did not find a path.");
+                        Logger.LogDebug("FleetAdmiral: " + ship + " targeting " + target + " did not find a path.");
                     }
                 }
             }
@@ -213,7 +262,7 @@
         {
             if (ship.DistanceFromDropoff > RemainingTurns + 1)
             {
-                Logger.LogInfo("FleetAdmiral: Ship " + ship + " should be an interceptor because it is far off (" + ship.DistanceFromDropoff + " vs " + RemainingTurns + ")");
+                Logger.LogDebug("FleetAdmiral: Ship " + ship + " should be an interceptor because it is far off (" + ship.DistanceFromDropoff + " vs " + RemainingTurns + ")");
                 return true;
             }
 
@@ -222,7 +271,7 @@
                 return false;
             }
 
-            if (ship.Halite < 100)
+            if (ship.Halite < 80)
             {
                 return true;
             }

@@ -22,6 +22,11 @@
 
             foreach (var ship in player.MyShips.Concat(player.SinkingShips))
             {
+                if (ship.IsSunkIntentionally)
+                {
+                    continue;
+                }
+
                 if (ship.IsBuildingDropoff)
                 {
                     BuildDropoff(ship.Id);
