@@ -117,7 +117,7 @@
             }
 
             var result = Simulator.RunSimulation(TurnNumber, eventList.ToArray());
-            Logger.LogDebug("RunSimulation(" + events + "): " + result);
+            Logger.LogInfo("RunSimulation(" + events + "): " + result);
             return result;
         }
 

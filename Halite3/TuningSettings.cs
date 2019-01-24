@@ -36,7 +36,7 @@ namespace Halite3
         public double HarvesterToOutboundConversionMinJobTimeRatio { get; set; } = 1.5d;
         public double HarvesterAllowedOverfillRatio { get; set; } = 0.7d;
 
-        public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 60;
+        public int FugitiveShipConversionMinBlockedTurnCount { get; set; } = 6;
         public double FugitiveShipConversionRatio { get; set; } = 0.5d;
         public int FugitiveShipMinTurnCount { get; set; } = 2;
         public int FugitiveShipMaxTurnCount { get; set; } = 4;

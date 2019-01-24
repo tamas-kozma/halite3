@@ -33,7 +33,6 @@
         public OutboundMap OutboundMap;
         public OpponentShip InterceptorTarget;
         public Position? InterceptorNextPosition;
-        public bool IsSunkIntentionally;
 
         public void SetPosition(Position newPosition)
         {

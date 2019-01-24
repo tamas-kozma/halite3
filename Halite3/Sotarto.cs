@@ -224,17 +224,6 @@
                 currentOutboundMap = newOutboundMap;
                 shipTurnOrderComparer.OutboundMap = currentOutboundMap;
 
-                var lala = shipQueue.Where(ship => ship.IsSunkIntentionally).ToArray();
-                if (lala.Length > 0)
-                {
-                    foreach (var ship in lala)
-                    {
-                        shipQueue.Remove(ship);
-                    }
-
-                    continue;
-                }
-
                 var bestShip = shipQueue[0];
                 UpdateShipDestination(bestShip);
                 int bestIndex = 0;
@@ -260,12 +249,6 @@
                 if (!bestShip.HasActionAssigned)
                 {
                     TryAssignOrderToShip(bestShip);
-                    if (bestShip.IsSunkIntentionally)
-                    {
-                        shipQueue.Remove(bestShip);
-                        continue;
-                    }
-
                     UpdateShipDestination(bestShip);
 
                     if (!bestShip.HasActionAssigned)
@@ -547,30 +530,15 @@
 
         private void TryAssignOrderToInterceptor(MyShip ship)
         {
-            logger.LogDebug("TryAssignOrderToInterceptor: " + ship);
             if (ship.InterceptorNextPosition.HasValue)
             {
-                var target = ship.InterceptorTarget;
-                var nextPosition = ship.InterceptorNextPosition.Value;
-                var shipInTheWay = allOpponentShipMap[nextPosition];
-                if (target.Owner.DistanceFromDropoffMap[nextPosition] != 0
-                    && myPlayer.MyShipMap[nextPosition] == null
-                    && !myPlayer.Shipwrecks.Any(w => w.Position == nextPosition)
-                    && myPlayer.DistanceFromDropoffMap[nextPosition] != 0
-                    && (ship.DistanceFromDestination == 1
-                        || shipInTheWay == null || shipInTheWay == ship.InterceptorTarget))
+                if (!IsForbidden(ship, ship.InterceptorNextPosition.Value))
                 {
-                    logger.LogDebug("TryAssignOrderToInterceptor: moving to " + nextPosition + ".");
-                    ProcessShipOrder(ship, nextPosition);
+                    ProcessShipOrder(ship, ship.InterceptorNextPosition.Value);
                     return;
-                }
-                else
-                {
-                    logger.LogDebug("forbiddenCellsMap[nextPosition]=" + forbiddenCellsMap[nextPosition] + ", ship there=" + myPlayer.ShipMap[nextPosition] + ", target.Owner.DistanceFromDropoffMap[nextPosition]=" + target.Owner.DistanceFromDropoffMap[nextPosition]);
                 }
             }
 
-            logger.LogDebug("TryAssignOrderToInterceptor: staying.");
             ProcessShipOrder(ship, ship.OriginPosition);
         }
 
@@ -690,13 +658,8 @@
                 return;
             }
 
-            if (ship.Map != null)
-            {
-                var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
-                ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
-            }
-
-            ProcessShipOrder(ship, ship.OriginPosition);
+            var neighbourhoodInfo = DiscoverNeighbourhood(ship, null);
+            ProcessShipOrder(ship, neighbourhoodInfo.BestAllowedPosition);
         }
 
         private bool GoAwayFromOpponentDropoffIfNeeded(MyShip ship)
@@ -760,7 +723,7 @@
                         {
                             ship.HasFoundTooLittleHaliteToHarvestThisTurn = true;
                             var newRole = (ship.Halite <= tuningSettings.HarvesterMaximumFillForTurningOutbound) ? ShipRole.Outbound : ShipRole.Inbound;
-                            logger.LogDebug("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", adjusted halite = " + neighbourhoodInfo.BestValue + ").");
+                            logger.LogInfo("Ship " + ship.Id + " at " + ship.OriginPosition + "changes role from " + ShipRole.Harvester + " to " + newRole + " because there's not enough halite here (job time = " + jobTime + ", mean = " + meanHarvesterJobTime + ", adjusted halite = " + neighbourhoodInfo.BestValue + ").");
                             SetShipRole(ship, newRole);
                             return;
                         }
@@ -1373,15 +1336,12 @@
 
         private void SinkShip(MyShip ship)
         {
-            logger.LogDebug("Sinking ship " + ship);
             myPlayer.Shipwrecks.Add(ship);
             myPlayer.ShipMap[ship.Position] = null;
             myPlayer.Ships.Remove(ship);
             myPlayer.MyShipMap[ship.Position] = null;
             myPlayer.MyShips.Remove(ship as MyShip);
             myPlayer.SinkingShips.Add(ship);
-            ship.HasActionAssigned = true;
-            //ship.IsSunkIntentionally = true;
             HandleShipwreck(ship);
         }
 
@@ -1505,8 +1465,7 @@
                 MapBooster = mapBooster,
                 SetShipRole = SetShipRole,
                 MacroEngine = macroEngine,
-                ForbiddenCellsMap = forbiddenCellsMap,
-                PaintMap = PaintMap
+                ForbiddenCellsMap = forbiddenCellsMap
             };
 
             fleetAdmiral.Initialize();

@@ -153,7 +153,6 @@
 
         protected override Ship HandleNewShip(ShipMessage shipMessage)
         {
-            Logger.LogError("ShipId=" + shipMessage.ShipId + "Position =" + shipMessage.Position);
             throw new BotFailedException();
         }
     }
